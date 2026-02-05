@@ -47,7 +47,8 @@ npm run ios
 ## 五、常见问题与解决方法
 - Metro 占用端口 8081：
   - Windows 下可结束占用进程或释放端口，例如使用 PowerShell：
-  ```powershell
+
+```powershell
 Get-NetTCPConnection -LocalPort 8081 | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 - 无可用 Android 模拟器：

@@ -8,14 +8,33 @@ buildscript {
         kotlinVersion = "1.9.24"
     }
     repositories {
+        // 阿里云镜像系列
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
         google()
         mavenCentral()
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
+        // 修改这里：删掉 :0.75.2，只保留插件
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
     }
 }
-
 apply plugin: "com.facebook.react.rootproject"
+// 建议在这里也加上 allprojects 块，确保所有子模块（如 app 模块）也能使用镜像
+allprojects {
+    repositories {
+        // 阿里云镜像系列
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/releases' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+        // JitPack 镜像
+        maven { url 'https://jitpack.io' }
+
+        google()
+        mavenCentral()
+    }
+}
+
