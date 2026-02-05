@@ -1,5 +1,13 @@
 /**
- * 业务类型定义，后续在 api.d.ts 或 hotel.ts 中补充
- * 如：HotelListItem、HotelDetail、RoomType、BannerItem、ListParams、ListResult 等
+ * 业务类型统一导出
+ * 接口/API 类型由 A 维护，B 只读引用
  */
-export {};
+
+export type {
+  RoomType,
+  HotelListItem,
+  HotelDetail,
+  BannerItem,
+  ListParams,
+  ListResult,
+} from './hotel';
