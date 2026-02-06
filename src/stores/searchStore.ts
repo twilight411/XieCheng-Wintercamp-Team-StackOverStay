@@ -1,3 +1,4 @@
+import type {StateCreator} from 'zustand';
 import {create} from 'zustand';
 
 import {DEFAULT_CITY} from '../constants';
@@ -16,7 +17,7 @@ export interface SearchState {
   setKeyword: (keyword: string | undefined) => void;
 }
 
-export const useSearchStore = create<SearchState>(set => ({
+const creator: StateCreator<SearchState> = (set: any) => ({
   city: DEFAULT_CITY,
   checkIn: undefined,
   checkOut: undefined,
@@ -24,9 +25,11 @@ export const useSearchStore = create<SearchState>(set => ({
   starLevel: undefined,
   priceMin: undefined,
   priceMax: undefined,
-  setCity: city => set({city}),
-  setCheckIn: checkIn => set({checkIn}),
-  setCheckOut: checkOut => set({checkOut}),
-  setKeyword: keyword => set({keyword}),
-}));
+  setCity: (city: string) => set({city}),
+  setCheckIn: (checkIn: string | undefined) => set({checkIn}),
+  setCheckOut: (checkOut: string | undefined) => set({checkOut}),
+  setKeyword: (keyword: string | undefined) => set({keyword}),
+});
+
+export const useSearchStore = create<SearchState>(creator);
 

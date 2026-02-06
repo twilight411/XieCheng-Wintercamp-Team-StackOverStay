@@ -18,6 +18,7 @@ import type {BannerItem} from '../types';
 import {getBanners} from '../services/hotel';
 import {useSearchStore, type SearchState} from '../stores/searchStore';
 import {getCurrentCity} from '../services/geo';
+import DatePickerModal from '../components/DatePickerModal';
 
 type HomeNav = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList, 'Home'>,
@@ -39,9 +40,13 @@ function HomeScreen(): React.JSX.Element {
   const keyword = useSearchStore((s: SearchState) => s.keyword ?? '');
   const setKeyword = useSearchStore((s: SearchState) => s.setKeyword);
   const checkIn = useSearchStore((s: SearchState) => s.checkIn);
+  const setCheckIn = useSearchStore((s: SearchState) => s.setCheckIn);
 
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [bannerLoading, setBannerLoading] = useState<boolean>(false);
+  const [dateModalVisible, setDateModalVisible] = useState<boolean>(false);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     // 获取当前城市（占位实现，后续可接入真实定位）
@@ -84,10 +89,11 @@ function HomeScreen(): React.JSX.Element {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
       {/* 当前城市 */}
       <View style={styles.cityBar}>
         <Text style={styles.cityLabel}>当前城市</Text>
@@ -143,11 +149,16 @@ function HomeScreen(): React.JSX.Element {
         </TouchableOpacity>
       </View>
 
-      {/* 入住日期占位 */}
-      <TouchableOpacity style={styles.dateWrap} activeOpacity={0.8}>
-        <Text style={styles.dateLabel}>入住日期</Text>
-        <Text style={styles.dateValue}>选择日期</Text>
-      </TouchableOpacity>
+        {/* 入住日期：点击弹出日历 */}
+        <TouchableOpacity
+          style={styles.dateWrap}
+          activeOpacity={0.8}
+          onPress={() => setDateModalVisible(true)}>
+          <Text style={styles.dateLabel}>入住日期</Text>
+          <Text style={styles.dateValue}>
+            {checkIn ? checkIn : '选择日期'}
+          </Text>
+        </TouchableOpacity>
 
       {/* 星级 / 价格筛选占位 */}
       <View style={styles.filterRow}>
@@ -161,28 +172,39 @@ function HomeScreen(): React.JSX.Element {
         </View>
       </View>
 
-      {/* 快捷标签 */}
-      <View style={styles.tagsSection}>
-        <Text style={styles.tagsTitle}>快捷标签</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagsScroll}>
-          {QUICK_TAGS.map(tag => (
-            <TouchableOpacity
-              key={tag.id}
-              style={styles.tag}
-              onPress={() => {
-                setKeyword(tag.label);
-                goToList(tag.label);
-              }}
-              activeOpacity={0.8}>
-              <Text style={styles.tagText}>{tag.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    </ScrollView>
+        {/* 快捷标签 */}
+        <View style={styles.tagsSection}>
+          <Text style={styles.tagsTitle}>快捷标签</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagsScroll}>
+            {QUICK_TAGS.map(tag => (
+              <TouchableOpacity
+                key={tag.id}
+                style={styles.tag}
+                onPress={() => {
+                  setKeyword(tag.label);
+                  goToList(tag.label);
+                }}
+                activeOpacity={0.8}>
+                <Text style={styles.tagText}>{tag.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </ScrollView>
+
+      <DatePickerModal
+        visible={dateModalVisible}
+        initialDate={checkIn ?? todayStr}
+        onConfirm={date => {
+          setCheckIn(date);
+          setDateModalVisible(false);
+        }}
+        onClose={() => setDateModalVisible(false)}
+      />
+    </>
   );
 }
 
