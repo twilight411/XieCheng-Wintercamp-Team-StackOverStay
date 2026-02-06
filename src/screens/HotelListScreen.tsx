@@ -12,13 +12,13 @@ import {
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
-import type {RootStackParamList, RootTabParamList} from '../navigation/types';
+import type {RootStackParamList} from '../navigation/types';
 import type {HotelListItem as HotelListItemType} from '../types/hotel';
 import {HotelListItem} from '../components/HotelListItem';
 import {FilterBar} from '../components/FilterBar';
 
-// 路由参数类型
-type HotelListRouteProp = RouteProp<RootTabParamList, 'HotelList'>;
+// 路由参数类型（HotelList 为 Stack 屏，由首页点击查询后跳转）
+type HotelListRouteProp = RouteProp<RootStackParamList, 'HotelList'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // Mock 数据

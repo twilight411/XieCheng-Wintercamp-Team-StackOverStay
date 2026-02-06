@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,17 +20,27 @@ import {getBanners} from '../services/hotel';
 import {useSearchStore, type SearchState} from '../stores/searchStore';
 import {getCurrentCity} from '../services/geo';
 import DatePickerModal from '../components/DatePickerModal';
+import {QUICK_TAGS, type QuickTagItem} from '../constants/tags';
 
 type HomeNav = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList, 'Home'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-const QUICK_TAGS = [
-  {id: 'economy', label: '经济型'},
-  {id: 'comfort', label: '舒适型'},
-  {id: 'high', label: '高档'},
-  {id: 'luxury', label: '豪华'},
+const STAR_LEVEL_OPTIONS = [
+  {label: '不限', value: undefined as number | undefined},
+  {label: '经济型(2星)', value: 2},
+  {label: '舒适型(3星)', value: 3},
+  {label: '高档(4星)', value: 4},
+  {label: '豪华(5星)', value: 5},
+];
+
+const PRICE_RANGE_OPTIONS = [
+  {label: '不限', priceMin: undefined as number | undefined, priceMax: undefined as number | undefined},
+  {label: '0-300元', priceMin: 0, priceMax: 300},
+  {label: '300-600元', priceMin: 300, priceMax: 600},
+  {label: '600-1000元', priceMin: 600, priceMax: 1000},
+  {label: '1000元以上', priceMin: 1000, priceMax: undefined},
 ];
 
 function HomeScreen(): React.JSX.Element {
@@ -41,6 +52,11 @@ function HomeScreen(): React.JSX.Element {
   const setKeyword = useSearchStore((s: SearchState) => s.setKeyword);
   const checkIn = useSearchStore((s: SearchState) => s.checkIn);
   const setCheckIn = useSearchStore((s: SearchState) => s.setCheckIn);
+  const starLevel = useSearchStore((s: SearchState) => s.starLevel);
+  const setStarLevel = useSearchStore((s: SearchState) => s.setStarLevel);
+  const priceMin = useSearchStore((s: SearchState) => s.priceMin);
+  const priceMax = useSearchStore((s: SearchState) => s.priceMax);
+  const setPriceRange = useSearchStore((s: SearchState) => s.setPriceRange);
 
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [bannerLoading, setBannerLoading] = useState<boolean>(false);
@@ -79,12 +95,67 @@ function HomeScreen(): React.JSX.Element {
     navigation.navigate('HotelDetail', {hotelId});
   };
 
-  const goToList = (kw?: string) => {
-    const finalKeyword = kw ?? keyword ?? '';
+  const goToList = (opts?: {keyword?: string; starLevel?: number | number[]; priceMin?: number; priceMax?: number}) => {
+    const finalKeyword = opts?.keyword ?? keyword ?? '';
     navigation.navigate('HotelList', {
-      keyword: finalKeyword,
+      keyword: finalKeyword || undefined,
       city,
       checkIn,
+      starLevel: opts?.starLevel ?? starLevel,
+      priceMin: opts?.priceMin ?? priceMin,
+      priceMax: opts?.priceMax ?? priceMax,
+    });
+  };
+
+  const showStarLevelPicker = () => {
+    Alert.alert(
+      '选择星级',
+      undefined,
+      STAR_LEVEL_OPTIONS.map(opt => ({
+        text: opt.label,
+        onPress: () => {
+          setStarLevel(opt.value);
+        },
+      })),
+    );
+  };
+
+  const showPriceRangePicker = () => {
+    Alert.alert(
+      '选择价格',
+      undefined,
+      PRICE_RANGE_OPTIONS.map(opt => ({
+        text: opt.label,
+        onPress: () => {
+          setPriceRange(opt.priceMin, opt.priceMax);
+        },
+      })),
+    );
+  };
+
+  const formatStarLevel = (v?: number | number[]) => {
+    if (v === undefined || v === null) return '不限';
+    if (Array.isArray(v)) return v.join(',') + '星';
+    return `${v}星`;
+  };
+
+  const formatPriceRange = () => {
+    if (priceMin == null && priceMax == null) return '不限';
+    if (priceMin != null && priceMax == null) return `${priceMin}元以上`;
+    if (priceMin == null && priceMax != null) return `${priceMax}元以下`;
+    return `${priceMin}-${priceMax}元`;
+  };
+
+  const handleQuickTagPress = (tag: QuickTagItem) => {
+    const kw = tag.keyword ?? tag.label;
+    setKeyword(kw);
+    if (tag.starLevel != null) setStarLevel(tag.starLevel);
+    if (tag.priceMin != null || tag.priceMax != null) setPriceRange(tag.priceMin, tag.priceMax);
+    goToList({
+      keyword: kw,
+      starLevel: tag.starLevel ?? starLevel,
+      priceMin: tag.priceMin ?? priceMin,
+      priceMax: tag.priceMax ?? priceMax,
     });
   };
 
@@ -160,39 +231,42 @@ function HomeScreen(): React.JSX.Element {
           </Text>
         </TouchableOpacity>
 
-      {/* 星级 / 价格筛选占位 */}
+      {/* 星级 / 价格筛选 */}
       <View style={styles.filterRow}>
-        <View style={styles.filterBlock}>
+        <TouchableOpacity
+          style={styles.filterBlock}
+          activeOpacity={0.8}
+          onPress={showStarLevelPicker}>
           <Text style={styles.filterLabel}>星级</Text>
-          <Text style={styles.filterValue}>不限</Text>
-        </View>
-        <View style={styles.filterBlock}>
+          <Text style={styles.filterValue}>{formatStarLevel(starLevel)}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.filterBlock}
+          activeOpacity={0.8}
+          onPress={showPriceRangePicker}>
           <Text style={styles.filterLabel}>价格</Text>
-          <Text style={styles.filterValue}>不限</Text>
-        </View>
+          <Text style={styles.filterValue}>{formatPriceRange()}</Text>
+        </TouchableOpacity>
       </View>
 
-        {/* 快捷标签 */}
-        <View style={styles.tagsSection}>
-          <Text style={styles.tagsTitle}>快捷标签</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tagsScroll}>
-            {QUICK_TAGS.map(tag => (
-              <TouchableOpacity
-                key={tag.id}
-                style={styles.tag}
-                onPress={() => {
-                  setKeyword(tag.label);
-                  goToList(tag.label);
-                }}
-                activeOpacity={0.8}>
-                <Text style={styles.tagText}>{tag.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+      {/* 快捷标签（从 constants/tags 读取，带条件进列表） */}
+      <View style={styles.tagsSection}>
+        <Text style={styles.tagsTitle}>快捷标签</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagsScroll}>
+          {QUICK_TAGS.map(tag => (
+            <TouchableOpacity
+              key={tag.id}
+              style={styles.tag}
+              onPress={() => handleQuickTagPress(tag)}
+              activeOpacity={0.8}>
+              <Text style={styles.tagText}>{tag.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
       </ScrollView>
 
       <DatePickerModal

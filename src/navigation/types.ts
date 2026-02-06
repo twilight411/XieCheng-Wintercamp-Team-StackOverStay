@@ -6,15 +6,20 @@ export type HotelListParams = {
   city?: string;
   checkIn?: string;
   checkOut?: string;
+  starLevel?: number | number[];
+  priceMin?: number;
+  priceMax?: number;
 };
 
 export type RootTabParamList = {
   Home: undefined;
-  HotelList: HotelListParams | undefined;
+  My: undefined;
 };
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<RootTabParamList>;
+  /** 酒店列表页：由首页点击「查询」按钮后跳转，不在 Tab 中 */
+  HotelList: HotelListParams | undefined;
   HotelDetail: {
     hotelId: string;
   };
