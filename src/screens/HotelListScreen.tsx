@@ -16,55 +16,119 @@ import type {RootStackParamList} from '../navigation/types';
 import type {HotelListItem as HotelListItemType} from '../types/hotel';
 import {HotelListItem} from '../components/HotelListItem';
 import {FilterBar} from '../components/FilterBar';
+import {CityPicker} from '../components/CityPicker';
+import {RangeDatePickerModal} from '../components/RangeDatePickerModal';
 
 // 路由参数类型（HotelList 为 Stack 屏，由首页点击查询后跳转）
 type HotelListRouteProp = RouteProp<RootStackParamList, 'HotelList'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Mock 数据
-const MOCK_DATA: HotelListItemType[] = [
-  {
-    id: '1',
-    name: '上海和平饭店',
-    nameEn: 'Fairmont Peace Hotel',
-    address: '黄浦区南京东路20号',
-    starLevel: 5,
-    images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
-    minPrice: 1888,
-  },
-  {
-    id: '2',
-    name: '上海宝格丽酒店',
-    nameEn: 'Bulgari Hotel Shanghai',
-    address: '静安区河南北路33号',
-    starLevel: 5,
-    images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'],
-    minPrice: 4888,
-  },
-  {
-    id: '3',
-    name: '全季酒店(上海南京东路步行街店)',
-    address: '黄浦区九江路',
-    starLevel: 3,
-    images: ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800'],
-    minPrice: 459,
-  },
-  {
-    id: '4',
-    name: '亚朵酒店(外滩店)',
-    address: '黄浦区延安东路',
-    starLevel: 4,
-    images: ['https://images.unsplash.com/photo-1596436889106-be35e843f974?w=800'],
-    minPrice: 689,
-  },
-];
+// Mock 数据生成器
+const getMockData = (city: string): HotelListItemType[] => {
+  if (city === '北京') {
+    return [
+      {
+        id: 'bj-1',
+        name: '北京饭店',
+        nameEn: 'Beijing Hotel',
+        address: '东城区东长安街33号',
+        starLevel: 5,
+        images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
+        minPrice: 2888,
+      },
+      {
+        id: 'bj-2',
+        name: '北京王府半岛酒店',
+        nameEn: 'The Peninsula Beijing',
+        address: '东城区王府井金鱼胡同8号',
+        starLevel: 5,
+        images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'],
+        minPrice: 3888,
+      },
+    ];
+  }
+  
+  if (city === '上海') {
+    return [
+      {
+        id: 'sh-1',
+        name: '上海和平饭店',
+        nameEn: 'Fairmont Peace Hotel',
+        address: '黄浦区南京东路20号',
+        starLevel: 5,
+        images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
+        minPrice: 1888,
+      },
+      {
+        id: 'sh-2',
+        name: '上海宝格丽酒店',
+        nameEn: 'Bulgari Hotel Shanghai',
+        address: '静安区河南北路33号',
+        starLevel: 5,
+        images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'],
+        minPrice: 4888,
+      },
+      {
+        id: 'sh-3',
+        name: '全季酒店(上海南京东路步行街店)',
+        address: '黄浦区九江路',
+        starLevel: 3,
+        images: ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800'],
+        minPrice: 459,
+      },
+    ];
+  }
+
+  return []; // 其他城市暂无数据
+};
 
 function HotelListScreen(): React.JSX.Element {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<HotelListRouteProp>();
 
-  // 从参数获取初始值（暂未实际使用，留作后续逻辑入口）
-  const { city, keyword } = route.params || {};
+  // 从参数获取初始值
+  const { city: initialCity, keyword } = route.params || {};
+  
+  // 状态管理
+  const [city, setCity] = React.useState(initialCity || '上海');
+  const [checkIn, setCheckIn] = React.useState('2025-02-06'); // 默认值，后续可从 store 获取
+  const [checkOut, setCheckOut] = React.useState('2025-02-07');
+  
+  const [cityModalVisible, setCityModalVisible] = React.useState(false);
+  const [dateModalVisible, setDateModalVisible] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  // 初始化时根据默认城市获取数据
+  const [hotelList, setHotelList] = React.useState(() => getMockData(initialCity || '上海'));
+
+  // 模拟重新请求数据
+  const refreshData = useCallback(() => {
+    setLoading(true);
+    setHotelList([]); 
+    
+    // 模拟带着参数请求
+    console.log(`Requesting with: City=${city}, CheckIn=${checkIn}, CheckOut=${checkOut}`);
+
+    setTimeout(() => {
+      // 根据当前城市获取 Mock 数据
+      const newData = getMockData(city);
+      setHotelList(newData);
+      setLoading(false);
+    }, 500);
+  }, [city, checkIn, checkOut]);
+
+  // 监听筛选条件变化，自动触发刷新
+  React.useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  const handleCitySelect = (newCity: string) => {
+    setCity(newCity);
+  };
+
+  const handleDateSelect = (start: string, end: string) => {
+    setCheckIn(start);
+    setCheckOut(end);
+  };
 
   const handleItemPress = useCallback((hotelId: string) => {
     navigation.navigate('HotelDetail', {hotelId});
@@ -81,17 +145,17 @@ function HotelListScreen(): React.JSX.Element {
         <TouchableOpacity
           style={styles.citySelector}
           activeOpacity={0.8}
-          onPress={() => Alert.alert('切换城市', '后续接入城市选择页')}>
-          <Text style={styles.cityText}>{city || '上海'}</Text>
+          onPress={() => setCityModalVisible(true)}>
+          <Text style={styles.cityText}>{city}</Text>
           <Text style={styles.arrowIcon}>▼</Text>
         </TouchableOpacity>
 
         <View style={styles.searchBar}>
           <TouchableOpacity
             style={styles.dateSection}
-            onPress={() => Alert.alert('修改日期', '后续接入日历组件')}>
-            <Text style={styles.dateText}>住 02-06</Text>
-            <Text style={styles.dateText}>离 02-07</Text>
+            onPress={() => setDateModalVisible(true)}>
+            <Text style={styles.dateText}>住 {checkIn.slice(5)}</Text>
+            <Text style={styles.dateText}>离 {checkOut.slice(5)}</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity
@@ -116,13 +180,41 @@ function HotelListScreen(): React.JSX.Element {
 
       {/* 列表主体 */}
       <FlatList
-        data={MOCK_DATA}
+        data={hotelList}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         ListHeaderComponent={renderHeader}
         stickyHeaderIndices={[0]} // 让头部吸顶（需配合背景色）
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshing={loading}
+        onRefresh={refreshData}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>暂无酒店数据</Text>
+            </View>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>加载中...</Text>
+            </View>
+          )
+        }
+      />
+
+      <CityPicker
+        visible={cityModalVisible}
+        currentCity={city}
+        onClose={() => setCityModalVisible(false)}
+        onSelect={handleCitySelect}
+      />
+
+      <RangeDatePickerModal
+        visible={dateModalVisible}
+        initialCheckIn={checkIn}
+        initialCheckOut={checkOut}
+        onClose={() => setDateModalVisible(false)}
+        onSelect={handleDateSelect}
       />
     </SafeAreaView>
   );
@@ -194,6 +286,22 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     color: '#999',
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#666',
+    fontSize: 14,
   },
 });
 
