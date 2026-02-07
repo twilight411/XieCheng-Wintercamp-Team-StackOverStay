@@ -14,19 +14,17 @@ interface FilterPriceStarProps {
 }
 
 const STAR_OPTIONS = [
-  {label: '二星及以下', value: '2'},
-  {label: '三星/舒适', value: '3'},
-  {label: '四星/高档', value: '4'},
-  {label: '五星/豪华', value: '5'},
+  {label: '经济型(2星)', value: '2'},
+  {label: '舒适型(3星)', value: '3'},
+  {label: '高档(4星)', value: '4'},
+  {label: '豪华(5星)', value: '5'},
 ];
 
 const PRICE_OPTIONS = [
-  {label: '¥150以下', value: '0-150'},
-  {label: '¥150-300', value: '150-300'},
-  {label: '¥300-450', value: '300-450'},
-  {label: '¥450-600', value: '450-600'},
-  {label: '¥600-1000', value: '600-1000'},
-  {label: '¥1000以上', value: '1000-9999'},
+  {label: '0-300元', value: '0-300'},
+  {label: '300-600元', value: '300-600'},
+  {label: '600-1000元', value: '600-1000'},
+  {label: '1000元以上', value: '1000-9999'},
 ];
 
 export const FilterPriceStar: React.FC<FilterPriceStarProps> = ({

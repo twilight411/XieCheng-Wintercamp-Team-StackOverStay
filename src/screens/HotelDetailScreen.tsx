@@ -7,12 +7,23 @@ import {
   StatusBar,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
-import {RouteProp, useRoute} from '@react-navigation/native';
+import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import type {RootStackParamList} from '../navigation/types';
 import {ImageCarousel} from '../components/ImageCarousel';
 import type {HotelDetail, RoomType} from '../types/hotel';
+
+import {
+  CaretRight,
+  CaretLeft,
+  MapPin,
+  ShareNetwork,
+  Heart,
+  CalendarBlank,
+} from 'phosphor-react-native';
 
 type HotelDetailRouteProp = RouteProp<RootStackParamList, 'HotelDetail'>;
 
@@ -23,7 +34,7 @@ const MOCK_DETAIL: HotelDetail = {
   nameEn: 'Fairmont Peace Hotel',
   address: '上海市黄浦区南京东路20号',
   starLevel: 5,
-  facilities: ['免费WiFi', '游泳池', '健身房', '停车场', '餐厅', '会议室'],
+  facilities: ['免费WiFi', '游泳池', '健身房', '停车场', '餐厅', '会议室', 'SPA', '酒吧'],
   images: [
     'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
     'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800',
@@ -37,6 +48,7 @@ const MOCK_DETAIL: HotelDetail = {
       price: 1888,
       area: '45㎡',
       breakfast: '含双早',
+      image: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800',
     },
     {
       id: 'r2',
@@ -45,6 +57,7 @@ const MOCK_DETAIL: HotelDetail = {
       price: 2088,
       area: '45㎡',
       breakfast: '含双早',
+      image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800',
     },
     {
       id: 'r3',
@@ -53,13 +66,49 @@ const MOCK_DETAIL: HotelDetail = {
       price: 5888,
       area: '178㎡',
       breakfast: '行政礼遇',
+      image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800',
     },
   ],
 };
 
 function HotelDetailScreen(): React.JSX.Element {
   const route = useRoute<HotelDetailRouteProp>();
-  const {hotelId} = route.params;
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const {hotelId, checkIn, checkOut} = route.params;
+
+  // 日期处理
+  const startDate = checkIn || '2025-02-06';
+  const endDate = checkOut || '2025-02-07';
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month < 10 ? '0' : ''}${month}月${day < 10 ? '0' : ''}${day}日`;
+  };
+
+  const getWeekDay = (dateStr: string) => {
+    const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const date = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const target = new Date(dateStr);
+    target.setHours(0,0,0,0);
+    
+    if (today.getTime() === target.getTime()) {
+        return '今天';
+    }
+    return days[date.getDay()];
+  };
+
+  const duration = React.useMemo(() => {
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    const diff = e.getTime() - s.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 1;
+  }, [startDate, endDate]);
 
   // 模拟根据 hotelId 获取数据（实际应调用 API）
   // 根据 hotelId 从列表页 Mock 数据中查找对应酒店（简单模拟），找不到则回退到 MOCK_DETAIL
@@ -136,22 +185,32 @@ function HotelDetailScreen(): React.JSX.Element {
 
   const renderRoomItem = (room: RoomType) => (
     <View key={room.id} style={styles.roomCard}>
-      <View style={styles.roomInfo}>
-        <Text style={styles.roomName}>{room.name}</Text>
-        <Text style={styles.roomDesc}>
-          {room.area} | {room.bedType} | {room.breakfast}
-        </Text>
-      </View>
-      <View style={styles.roomPriceBlock}>
-        <View style={styles.priceRow}>
-          <Text style={styles.currency}>¥</Text>
-          <Text style={styles.price}>{room.price}</Text>
+      <View style={styles.roomContent}>
+        <Image 
+          source={{uri: (room as any).image || detail.images[0]}} 
+          style={styles.roomImage} 
+        />
+        <View style={styles.roomInfo}>
+          <Text style={styles.roomName}>{room.name}</Text>
+          <Text style={styles.roomDesc}>
+            {room.area} | {room.bedType}
+          </Text>
+          <View style={styles.tagRow}>
+            <Text style={styles.roomTag}>{room.breakfast}</Text>
+            <Text style={styles.roomTag}>立即确认</Text>
+          </View>
+          <View style={styles.roomPriceRow}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.currency}>¥</Text>
+              <Text style={styles.price}>{room.price}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.bookButton}
+              onPress={() => Alert.alert('预订', `预订 ${room.name}`)}>
+              <Text style={styles.bookText}>预订</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity
-          style={styles.bookButton}
-          onPress={() => Alert.alert('预订', `预订 ${room.name}`)}>
-          <Text style={styles.bookText}>预订</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -161,7 +220,17 @@ function HotelDetailScreen(): React.JSX.Element {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <ScrollView contentContainerStyle={styles.content}>
         {/* 顶部大图轮播 */}
-        <ImageCarousel images={detail.images} />
+        <View style={styles.headerImageContainer}>
+          <ImageCarousel images={detail.images} />
+          <View style={styles.headerTools}>
+            <TouchableOpacity style={styles.toolButton}>
+              <ShareNetwork color="#fff" size={20} weight="bold" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.toolButton}>
+              <Heart color="#fff" size={20} weight="bold" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* 基础信息区 */}
         <View style={styles.infoSection}>
@@ -172,27 +241,80 @@ function HotelDetailScreen(): React.JSX.Element {
             <View style={styles.scoreTag}>
               <Text style={styles.scoreText}>{detail.score || 4.8}分</Text>
             </View>
-            <Text style={styles.commentText}>{detail.comment || '“位置绝佳，服务一流”'}</Text>
+            <Text style={styles.commentText}>“{detail.comment || '位置绝佳，服务一流'}”</Text>
+            <TouchableOpacity style={styles.detailLink} onPress={() => Alert.alert('点评', '查看所有点评')}>
+              <Text style={styles.detailLinkText}>2388条点评</Text>
+              <CaretRight size={12} color="#0066CC" />
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.address}>{detail.address}</Text>
+          <View style={styles.divider} />
 
-          {/* 设施标签 */}
-          <View style={styles.facilityRow}>
-            {detail.facilities.map((fac, index) => (
-              <Text key={index} style={styles.facilityTag}>
-                {fac}
-              </Text>
-            ))}
+          <TouchableOpacity 
+            style={styles.addressRow}
+            onPress={() => Alert.alert('地图', '跳转地图页')}>
+            <MapPin size={16} color="#333" weight="fill" />
+            <Text style={styles.address} numberOfLines={1}>{detail.address}</Text>
+            <Text style={styles.mapLink}>地图</Text>
+            <CaretRight size={12} color="#666" />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* 设施概览 */}
+          <TouchableOpacity 
+            style={styles.facilityRow}
+            onPress={() => Alert.alert('设施', '查看所有设施')}>
+            <View style={styles.facilityList}>
+              {detail.facilities.slice(0, 4).map((fac, index) => (
+                <Text key={index} style={styles.facilityTagSimple}>
+                  {fac}
+                </Text>
+              ))}
+              <Text style={styles.facilityMore}>+{detail.facilities.length - 4}</Text>
+            </View>
+            <View style={styles.facilityLink}>
+              <Text style={styles.facilityLinkText}>设施详情</Text>
+              <CaretRight size={12} color="#666" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* 日期选择条 */}
+        <View style={styles.dateBar}>
+          <View style={styles.dateInfo}>
+            <Text style={styles.dateLabel}>入住</Text>
+            <Text style={styles.dateValue}>{formatDate(startDate)}</Text>
+            <Text style={styles.weekText}>{getWeekDay(startDate)}</Text>
+          </View>
+          <View style={styles.stayDuration}>
+            <Text style={styles.durationText}>{duration}晚</Text>
+          </View>
+          <View style={styles.dateInfo}>
+            <Text style={styles.dateLabel}>离店</Text>
+            <Text style={styles.dateValue}>{formatDate(endDate)}</Text>
+            <Text style={styles.weekText}>{getWeekDay(endDate)}</Text>
+          </View>
+          <View style={styles.guestInfo}>
+            <Text style={styles.guestText}>1间, 2成人</Text>
+            <CaretRight size={12} color="#666" />
           </View>
         </View>
 
         {/* 房型列表区 */}
         <View style={styles.roomSection}>
-          <Text style={styles.sectionTitle}>房型预订</Text>
           {detail.roomTypes.map(renderRoomItem)}
         </View>
       </ScrollView>
+
+      {/* 返回按钮 */}
+      <TouchableOpacity
+        style={[styles.backButton, {top: insets.top + 10}]}
+        onPress={() => navigation.goBack()}>
+        <View style={styles.backButtonBg}>
+          <CaretLeft color="#fff" size={20} weight="bold" />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -201,23 +323,58 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    position: 'relative',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 100,
+  },
+  backButtonBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     paddingBottom: 40,
   },
+  headerImageContainer: {
+    position: 'relative',
+  },
+  headerTools: {
+    position: 'absolute',
+    top: 50, // 避开返回按钮区域
+    right: 16,
+    flexDirection: 'row',
+    gap: 12,
+    zIndex: 10,
+  },
+  toolButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   infoSection: {
     backgroundColor: '#fff',
     padding: 16,
-    marginBottom: 10,
+    marginBottom: 8,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
   },
   name: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
     marginBottom: 4,
   },
   enName: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     marginBottom: 12,
   },
@@ -228,82 +385,194 @@ const styles = StyleSheet.create({
   },
   scoreTag: {
     backgroundColor: '#0066CC',
+    borderTopLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    borderTopRightRadius: 2,
+    borderBottomLeftRadius: 2,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
     marginRight: 8,
   },
   scoreText: {
     color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   commentText: {
     color: '#0066CC',
     fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  detailLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailLinkText: {
+    color: '#0066CC',
+    fontSize: 12,
+    marginRight: 2,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#eee',
+    marginVertical: 12,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   address: {
     fontSize: 14,
     color: '#333',
-    marginBottom: 12,
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  mapLink: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 2,
   },
   facilityRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  facilityTag: {
+  facilityList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  facilityLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  facilityLinkText: {
     fontSize: 12,
     color: '#666',
-    backgroundColor: '#f5f7fa',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 2,
+    marginRight: 2,
   },
-  roomSection: {
+  facilityTagSimple: {
+    fontSize: 12,
+    color: '#666',
+  },
+  facilityMore: {
+    fontSize: 12,
+    color: '#999',
+  },
+  dateBar: {
     backgroundColor: '#fff',
-    padding: 16,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  sectionTitle: {
-    fontSize: 18,
+  dateInfo: {
+    alignItems: 'flex-start',
+  },
+  dateLabel: {
+    fontSize: 11,
+    color: '#999',
+    marginBottom: 2,
+  },
+  dateValue: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
+  },
+  weekText: {
+    fontSize: 11,
+    color: '#333',
+  },
+  stayDuration: {
+    borderWidth: 0.5,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  durationText: {
+    fontSize: 10,
+    color: '#333',
+  },
+  guestInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  guestText: {
+    fontSize: 14,
+    color: '#333',
+    marginRight: 4,
+    fontWeight: '500',
+  },
+  roomSection: {
+    paddingHorizontal: 10,
   },
   roomCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 10,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  roomContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+  },
+  roomImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 6,
+    marginRight: 12,
+    backgroundColor: '#eee',
   },
   roomInfo: {
     flex: 1,
-    paddingRight: 12,
+    justifyContent: 'space-between',
   },
   roomName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   roomDesc: {
-    fontSize: 13,
-    color: '#999',
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 6,
   },
-  roomPriceBlock: {
+  tagRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 8,
+  },
+  roomTag: {
+    fontSize: 10,
+    color: '#0066CC',
+    borderColor: '#0066CC',
+    borderWidth: 0.5,
+    borderRadius: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  roomPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-end',
-    justifyContent: 'center',
   },
-  priceRow: {
+  priceContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 8,
   },
   currency: {
     fontSize: 12,
     color: '#FF4400',
-    marginRight: 2,
+    fontWeight: '600',
+    marginRight: 1,
   },
   price: {
     fontSize: 20,
@@ -312,14 +581,14 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     backgroundColor: '#FF4400',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 4,
   },
   bookText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 

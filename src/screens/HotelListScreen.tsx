@@ -63,6 +63,7 @@ const getMockData = (city: string): HotelListItemType[] => {
         starLevel: 5,
         images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
         minPrice: 1888,
+        facilities: ['游泳池', '健身房', '餐厅'],
       },
       {
         id: 'sh-2',
@@ -72,6 +73,7 @@ const getMockData = (city: string): HotelListItemType[] => {
         starLevel: 5,
         images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'],
         minPrice: 4888,
+        facilities: ['游泳池', 'SPA', '酒吧'],
       },
       {
         id: 'sh-3',
@@ -80,6 +82,7 @@ const getMockData = (city: string): HotelListItemType[] => {
         starLevel: 3,
         images: ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800'],
         minPrice: 459,
+        facilities: ['免费WiFi', '洗衣房'],
       },
     ];
   }
@@ -92,12 +95,12 @@ function HotelListScreen(): React.JSX.Element {
   const route = useRoute<HotelListRouteProp>();
 
   // 从参数获取初始值
-  const { city: initialCity, keyword } = route.params || {};
+  const { city: initialCity, keyword, checkIn: initialCheckIn, checkOut: initialCheckOut } = route.params || {};
   
   // 状态管理
   const [city, setCity] = React.useState(initialCity || '上海');
-  const [checkIn, setCheckIn] = React.useState('2025-02-06'); // 默认值，后续可从 store 获取
-  const [checkOut, setCheckOut] = React.useState('2025-02-07');
+  const [checkIn, setCheckIn] = React.useState(initialCheckIn || '2025-02-06');
+  const [checkOut, setCheckOut] = React.useState(initialCheckOut || '2025-02-07');
   
   const [cityModalVisible, setCityModalVisible] = React.useState(false);
   const [dateModalVisible, setDateModalVisible] = React.useState(false);
@@ -137,24 +140,101 @@ function HotelListScreen(): React.JSX.Element {
     setLoading(true);
     setHotelList([]); 
     
-    // 模拟带着参数请求
-    console.log('Requesting with:', {
+    // 构造标准请求参数
+    const params: any = {
       city,
       checkIn,
       checkOut,
-      filterLocation,
-      filterPriceStar,
-      filterSort,
-      filterMore,
-    });
+      keyword,
+    };
+
+    // 1. 处理价格/星级
+    if (filterPriceStar) {
+      // 星级转换: ['2', '3'] -> [2, 3]
+      if (filterPriceStar.stars?.length) {
+        params.starLevel = filterPriceStar.stars.map(Number);
+      }
+      // 价格转换: '0-300' -> min=0, max=300
+      if (filterPriceStar.price) {
+        const [min, max] = filterPriceStar.price.split('-').map(Number);
+        params.priceMin = min;
+        if (max < 9999) { // 假设 9999 是 "1000以上" 的标记值，或者直接传 undefined
+           params.priceMax = max;
+        }
+      }
+    }
+
+    // 2. 处理设施 (More)
+    if (filterMore) {
+       // 这里根据后端协议，可能需要合并所有选中的设施 tag
+       // 假设后端接受 facilities: string[]
+       const facilities: string[] = [];
+       Object.values(filterMore).forEach(arr => facilities.push(...arr));
+       if (facilities.length) {
+         params.facilities = facilities;
+       }
+    }
+
+    // 3. 处理位置 (Location) - 假设后端接受 locationType, locationValue
+    if (filterLocation) {
+      params.locationType = filterLocation.type;
+      params.locationValue = filterLocation.value;
+    }
+
+    // 4. 处理排序
+    if (filterSort && filterSort !== 'default') {
+      params.sort = filterSort;
+    }
+
+    // 模拟带着参数请求
+    console.log('Requesting with params:', params);
 
     setTimeout(() => {
       // 根据当前城市获取 Mock 数据
-      const newData = getMockData(city);
+      let newData = getMockData(city);
+
+      // --- 前端模拟筛选逻辑 (Mock) ---
+      
+      // 1. 星级筛选
+      if (params.starLevel && params.starLevel.length > 0) {
+        // params.starLevel 是数字数组 [3, 5]
+        newData = newData.filter(item => params.starLevel.includes(item.starLevel));
+      }
+
+      // 2. 价格筛选
+      if (params.priceMin !== undefined) {
+        newData = newData.filter(item => item.minPrice >= params.priceMin);
+      }
+      if (params.priceMax !== undefined) {
+        newData = newData.filter(item => item.minPrice <= params.priceMax);
+      }
+
+      // 3. 设施筛选 (Mock)
+      if (params.facilities && params.facilities.length > 0) {
+        // 简单模拟：酒店设施需包含所有选中的设施
+        newData = newData.filter(item => {
+           if (!item.facilities) return false;
+           // 检查 params.facilities 中的每一项是否都在 item.facilities 中
+           return params.facilities.every((fac: string) => item.facilities?.includes(fac));
+        });
+      }
+
+      // 4. 排序逻辑
+      if (params.sort) {
+        if (params.sort === 'price_asc') {
+          newData.sort((a, b) => a.minPrice - b.minPrice);
+        } else if (params.sort === 'price_desc') {
+          newData.sort((a, b) => b.minPrice - a.minPrice);
+        } else if (params.sort === 'score_desc') {
+          // 假设 item.score 存在，若不存在则忽略或用 mock 值
+          newData.sort((a, b) => (b.score || 4.5) - (a.score || 4.5));
+        }
+      }
+
       setHotelList(newData);
       setLoading(false);
     }, 500);
-  }, [city, checkIn, checkOut, filterLocation, filterPriceStar, filterSort, filterMore]);
+  }, [city, checkIn, checkOut, keyword, filterLocation, filterPriceStar, filterSort, filterMore]);
 
   // 监听筛选条件变化，自动触发刷新
   React.useEffect(() => {
@@ -171,8 +251,12 @@ function HotelListScreen(): React.JSX.Element {
   };
 
   const handleItemPress = useCallback((hotelId: string) => {
-    navigation.navigate('HotelDetail', {hotelId});
-  }, [navigation]);
+    navigation.navigate('HotelDetail', {
+      hotelId,
+      checkIn,
+      checkOut,
+    });
+  }, [navigation, checkIn, checkOut]);
 
   const renderItem = useCallback(({item}: {item: HotelListItemType}) => (
     <HotelListItem item={item} onPress={handleItemPress} />

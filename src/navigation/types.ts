@@ -22,6 +22,8 @@ export type RootStackParamList = {
   HotelList: HotelListParams | undefined;
   HotelDetail: {
     hotelId: string;
+    checkIn?: string;
+    checkOut?: string;
   };
 };
 
