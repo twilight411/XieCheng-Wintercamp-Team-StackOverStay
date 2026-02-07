@@ -158,7 +158,7 @@ function HotelDetailScreen(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <ScrollView contentContainerStyle={styles.content}>
         {/* 顶部大图轮播 */}
         <ImageCarousel images={detail.images} />

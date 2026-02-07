@@ -18,6 +18,11 @@ import {HotelListItem} from '../components/HotelListItem';
 import {FilterBar} from '../components/FilterBar';
 import {CityPicker} from '../components/CityPicker';
 import {RangeDatePickerModal} from '../components/RangeDatePickerModal';
+import {DropdownMenu} from '../components/filter/DropdownMenu';
+import {FilterLocation} from '../components/filter/FilterLocation';
+import {FilterPriceStar} from '../components/filter/FilterPriceStar';
+import {FilterSort} from '../components/filter/FilterSort';
+import {FilterMore} from '../components/filter/FilterMore';
 
 // 路由参数类型（HotelList 为 Stack 屏，由首页点击查询后跳转）
 type HotelListRouteProp = RouteProp<RootStackParamList, 'HotelList'>;
@@ -96,6 +101,33 @@ function HotelListScreen(): React.JSX.Element {
   
   const [cityModalVisible, setCityModalVisible] = React.useState(false);
   const [dateModalVisible, setDateModalVisible] = React.useState(false);
+  const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
+  
+  // 筛选状态
+  const [filterLocation, setFilterLocation] = React.useState<{type: string; value: string} | null>(null);
+  const [filterPriceStar, setFilterPriceStar] = React.useState<{stars: string[]; price: string | null} | null>(null);
+  const [filterSort, setFilterSort] = React.useState('default');
+  const [filterMore, setFilterMore] = React.useState<Record<string, string[]> | null>(null);
+
+  // 计算筛选数量
+  const filterCounts = React.useMemo(() => {
+    let location = 0;
+    if (filterLocation) location = 1;
+
+    let priceStar = 0;
+    if (filterPriceStar) {
+      priceStar += (filterPriceStar.stars?.length || 0);
+      if (filterPriceStar.price) priceStar += 1;
+    }
+
+    let more = 0;
+    if (filterMore) {
+      Object.values(filterMore).forEach(arr => more += arr.length);
+    }
+
+    return {location, priceStar, more};
+  }, [filterLocation, filterPriceStar, filterMore]);
+
   const [loading, setLoading] = React.useState(false);
   // 初始化时根据默认城市获取数据
   const [hotelList, setHotelList] = React.useState(() => getMockData(initialCity || '上海'));
@@ -106,7 +138,15 @@ function HotelListScreen(): React.JSX.Element {
     setHotelList([]); 
     
     // 模拟带着参数请求
-    console.log(`Requesting with: City=${city}, CheckIn=${checkIn}, CheckOut=${checkOut}`);
+    console.log('Requesting with:', {
+      city,
+      checkIn,
+      checkOut,
+      filterLocation,
+      filterPriceStar,
+      filterSort,
+      filterMore,
+    });
 
     setTimeout(() => {
       // 根据当前城市获取 Mock 数据
@@ -114,7 +154,7 @@ function HotelListScreen(): React.JSX.Element {
       setHotelList(newData);
       setLoading(false);
     }, 500);
-  }, [city, checkIn, checkOut]);
+  }, [city, checkIn, checkOut, filterLocation, filterPriceStar, filterSort, filterMore]);
 
   // 监听筛选条件变化，自动触发刷新
   React.useEffect(() => {
@@ -138,8 +178,14 @@ function HotelListScreen(): React.JSX.Element {
     <HotelListItem item={item} onPress={handleItemPress} />
   ), [handleItemPress]);
 
+  const handleFilterTabPress = (tab: string) => {
+    setActiveFilter(prev => (prev === tab ? null : tab));
+  };
+
+  const closeFilter = () => setActiveFilter(null);
+
   const renderHeader = () => (
-    <View>
+    <View style={{zIndex: 10, backgroundColor: '#fff'}}>
       {/* 顶部搜索条 */}
       <View style={styles.searchHeader}>
         <TouchableOpacity
@@ -170,7 +216,11 @@ function HotelListScreen(): React.JSX.Element {
       </View>
 
       {/* 筛选栏 */}
-      <FilterBar />
+      <FilterBar 
+        activeTab={activeFilter} 
+        onTabPress={handleFilterTabPress} 
+        counts={filterCounts}
+      />
     </View>
   );
 
@@ -201,6 +251,51 @@ function HotelListScreen(): React.JSX.Element {
           )
         }
       />
+
+      <DropdownMenu
+        visible={!!activeFilter}
+        onClose={closeFilter}
+        top={96}
+      >
+        {activeFilter === 'location' && (
+          <FilterLocation
+            initialSelection={filterLocation}
+            onApply={val => {
+              setFilterLocation(val);
+              closeFilter();
+            }}
+          />
+        )}
+        {activeFilter === 'priceStar' && (
+          <FilterPriceStar
+            initialSelection={filterPriceStar}
+            onApply={val => {
+              setFilterPriceStar(val);
+              closeFilter();
+            }}
+            onReset={() => {}}
+          />
+        )}
+        {activeFilter === 'sort' && (
+          <FilterSort
+            currentSort={filterSort}
+            onApply={val => {
+              setFilterSort(val);
+              closeFilter();
+            }}
+          />
+        )}
+        {activeFilter === 'more' && (
+          <FilterMore
+            initialSelection={filterMore}
+            onApply={val => {
+              setFilterMore(val);
+              closeFilter();
+            }}
+            onReset={() => {}}
+          />
+        )}
+      </DropdownMenu>
 
       <CityPicker
         visible={cityModalVisible}
