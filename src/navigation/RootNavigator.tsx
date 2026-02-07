@@ -17,6 +17,7 @@ function Tabs(): React.JSX.Element {
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
+        headerShown: false,
         tabBarIcon: ({focused, color, size}) => {
           const weight = focused ? 'fill' : 'regular';
           return route.name === 'Home' ? (
@@ -28,16 +29,8 @@ function Tabs(): React.JSX.Element {
         tabBarActiveTintColor: '#4A90E2',
         tabBarInactiveTintColor: '#999',
       })}>
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{title: '首页'}}
-      />
-      <Tab.Screen
-        name="My"
-        component={MyScreen}
-        options={{title: '我的'}}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} options={{title: '首页'}} />
+      <Tab.Screen name="My" component={MyScreen} options={{title: '我的'}} />
     </Tab.Navigator>
   );
 }

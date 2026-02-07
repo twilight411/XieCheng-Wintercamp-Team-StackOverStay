@@ -48,7 +48,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 ? {
                     [selected]: {
                       selected: true,
-                      selectedColor: '#4A90E2',
+                      selectedColor: '#3B82F6',
                     },
                   }
                 : undefined
