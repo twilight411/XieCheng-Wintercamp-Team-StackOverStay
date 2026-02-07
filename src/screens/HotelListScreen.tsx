@@ -59,11 +59,12 @@ const getMockData = (city: string): HotelListItemType[] => {
         id: 'sh-1',
         name: '上海和平饭店',
         nameEn: 'Fairmont Peace Hotel',
-        address: '黄浦区南京东路20号',
+        address: '黄浦区南京东路20号(近外滩)',
         starLevel: 5,
         images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
         minPrice: 1888,
         facilities: ['游泳池', '健身房', '餐厅'],
+        score: 4.8,
       },
       {
         id: 'sh-2',
@@ -74,15 +75,39 @@ const getMockData = (city: string): HotelListItemType[] => {
         images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'],
         minPrice: 4888,
         facilities: ['游泳池', 'SPA', '酒吧'],
+        score: 4.9,
       },
       {
         id: 'sh-3',
         name: '全季酒店(上海南京东路步行街店)',
-        address: '黄浦区九江路',
+        address: '黄浦区九江路(人民广场/南京路)',
         starLevel: 3,
         images: ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800'],
         minPrice: 459,
         facilities: ['免费WiFi', '洗衣房'],
+        score: 4.6,
+      },
+      {
+        id: 'sh-4',
+        name: '上海浦东丽思卡尔顿酒店',
+        nameEn: 'The Ritz-Carlton Shanghai, Pudong',
+        address: '浦东新区陆家嘴世纪大道8号',
+        starLevel: 5,
+        images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
+        minPrice: 2688,
+        facilities: ['游泳池', '健身房', '行政酒廊'],
+        score: 4.9,
+      },
+      {
+        id: 'sh-5',
+        name: '玩具总动员酒店',
+        nameEn: 'Toy Story Hotel',
+        address: '浦东新区申迪西路360号(迪士尼度假区)',
+        starLevel: 4,
+        images: ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800'],
+        minPrice: 1350,
+        facilities: ['免费班车', '儿童乐园'],
+        score: 4.7,
       },
     ];
   }
@@ -203,10 +228,10 @@ function HotelListScreen(): React.JSX.Element {
 
       // 2. 价格筛选
       if (params.priceMin !== undefined) {
-        newData = newData.filter(item => item.minPrice >= params.priceMin);
+        newData = newData.filter(item => (item.minPrice || 0) >= params.priceMin);
       }
       if (params.priceMax !== undefined) {
-        newData = newData.filter(item => item.minPrice <= params.priceMax);
+        newData = newData.filter(item => (item.minPrice || 0) <= params.priceMax);
       }
 
       // 3. 设施筛选 (Mock)
@@ -222,13 +247,23 @@ function HotelListScreen(): React.JSX.Element {
       // 4. 排序逻辑
       if (params.sort) {
         if (params.sort === 'price_asc') {
-          newData.sort((a, b) => a.minPrice - b.minPrice);
+          newData.sort((a, b) => (a.minPrice || 0) - (b.minPrice || 0));
         } else if (params.sort === 'price_desc') {
-          newData.sort((a, b) => b.minPrice - a.minPrice);
+          newData.sort((a, b) => (b.minPrice || 0) - (a.minPrice || 0));
         } else if (params.sort === 'score_desc') {
           // 假设 item.score 存在，若不存在则忽略或用 mock 值
           newData.sort((a, b) => (b.score || 4.5) - (a.score || 4.5));
         }
+      }
+
+      // 5. 位置筛选 (Mock)
+      if (params.locationValue) {
+        // 简单模拟：如果地址包含筛选的位置关键词（如“黄浦区”、“外滩”），则保留
+        // 实际后端会有更复杂的经纬度或区域判定
+        newData = newData.filter(item => 
+          item.address?.includes(params.locationValue) || 
+          item.name.includes(params.locationValue)
+        );
       }
 
       setHotelList(newData);

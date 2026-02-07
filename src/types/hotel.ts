@@ -25,6 +25,8 @@ export interface HotelListItem {
   starLevel: number;
   images: string[];
   minPrice?: number;
+  facilities?: string[];
+  score?: number;
   [key: string]: unknown;
 }
 

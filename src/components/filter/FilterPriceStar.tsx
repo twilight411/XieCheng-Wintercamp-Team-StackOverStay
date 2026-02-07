@@ -6,28 +6,28 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-
-interface FilterPriceStarProps {
-  initialSelection?: {stars: string[]; price: string | null} | null;
-  onApply: (filters: {stars: string[]; price: string | null} | null) => void;
-  onReset: () => void;
-}
-
-const STAR_OPTIONS = [
-  {label: '经济型(2星)', value: '2'},
-  {label: '舒适型(3星)', value: '3'},
-  {label: '高档(4星)', value: '4'},
-  {label: '豪华(5星)', value: '5'},
-];
-
-const PRICE_OPTIONS = [
-  {label: '0-300元', value: '0-300'},
-  {label: '300-600元', value: '300-600'},
-  {label: '600-1000元', value: '600-1000'},
-  {label: '1000元以上', value: '1000-9999'},
-];
-
-export const FilterPriceStar: React.FC<FilterPriceStarProps> = ({
+  
+  interface FilterPriceStarProps {
+    initialSelection?: {stars: string[]; price: string | null} | null;
+    onApply: (filters: {stars: string[]; price: string | null} | null) => void;
+    onReset: () => void;
+  }
+  
+  const STAR_OPTIONS = [
+    {label: '经济型(2星)', value: '2'},
+    {label: '舒适型(3星)', value: '3'},
+    {label: '高档(4星)', value: '4'},
+    {label: '豪华(5星)', value: '5'},
+  ];
+  
+  const PRICE_OPTIONS = [
+    {label: '0-300元', value: '0-300'},
+    {label: '300-600元', value: '300-600'},
+    {label: '600-1000元', value: '600-1000'},
+    {label: '1000元以上', value: '1000-9999'},
+  ];
+  
+  export const FilterPriceStar: React.FC<FilterPriceStarProps> = ({
   initialSelection,
   onApply,
   onReset,
