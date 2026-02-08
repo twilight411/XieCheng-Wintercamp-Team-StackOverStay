@@ -40,6 +40,8 @@ export interface HotelDetail {
   facilities: string[];
   images: string[];
   roomTypes: RoomType[];
+  score?: number;
+  comment?: string;
   [key: string]: unknown;
 }
 

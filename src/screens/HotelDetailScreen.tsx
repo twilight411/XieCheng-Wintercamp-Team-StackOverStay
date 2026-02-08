@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useState, useMemo} from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {RootStackParamList} from '../navigation/types';
 import {ImageCarousel} from '../components/ImageCarousel';
 import type {HotelDetail, RoomType} from '../types/hotel';
+import {getHotelDetail} from '../services/hotel';
 
 import {
   CaretRight,
@@ -22,60 +24,36 @@ import {
   MapPin,
   ShareNetwork,
   Heart,
-  CalendarBlank,
 } from 'phosphor-react-native';
 
 type HotelDetailRouteProp = RouteProp<RootStackParamList, 'HotelDetail'>;
-
-// Mock 数据
-const MOCK_DETAIL: HotelDetail = {
-  id: '1',
-  name: '上海和平饭店',
-  nameEn: 'Fairmont Peace Hotel',
-  address: '上海市黄浦区南京东路20号',
-  starLevel: 5,
-  facilities: ['免费WiFi', '游泳池', '健身房', '停车场', '餐厅', '会议室', 'SPA', '酒吧'],
-  images: [
-    'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
-    'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800',
-    'https://images.unsplash.com/photo-1596436889106-be35e843f974?w=800',
-  ],
-  roomTypes: [
-    {
-      id: 'r1',
-      name: '费尔蒙大床房',
-      bedType: '大床2米',
-      price: 1888,
-      area: '45㎡',
-      breakfast: '含双早',
-      image: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800',
-    },
-    {
-      id: 'r2',
-      name: '费尔蒙双床房',
-      bedType: '双床1.2米',
-      price: 2088,
-      area: '45㎡',
-      breakfast: '含双早',
-      image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800',
-    },
-    {
-      id: 'r3',
-      name: '九国套房',
-      bedType: '特大床',
-      price: 5888,
-      area: '178㎡',
-      breakfast: '行政礼遇',
-      image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800',
-    },
-  ],
-};
 
 function HotelDetailScreen(): React.JSX.Element {
   const route = useRoute<HotelDetailRouteProp>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const {hotelId, checkIn, checkOut} = route.params;
+
+  const [detail, setDetail] = useState<HotelDetail | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // 初始化加载数据
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        setLoading(true);
+        const data = await getHotelDetail(hotelId);
+        setDetail(data);
+      } catch (error) {
+        console.error('Failed to fetch hotel detail:', error);
+        Alert.alert('错误', '加载酒店详情失败，请稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDetail();
+  }, [hotelId]);
 
   // 日期处理
   const startDate = checkIn || '2025-02-06';
@@ -92,17 +70,17 @@ function HotelDetailScreen(): React.JSX.Element {
     const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     const date = new Date(dateStr);
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const target = new Date(dateStr);
-    target.setHours(0,0,0,0);
-    
+    target.setHours(0, 0, 0, 0);
+
     if (today.getTime() === target.getTime()) {
-        return '今天';
+      return '今天';
     }
     return days[date.getDay()];
   };
 
-  const duration = React.useMemo(() => {
+  const duration = useMemo(() => {
     const s = new Date(startDate);
     const e = new Date(endDate);
     const diff = e.getTime() - s.getTime();
@@ -110,85 +88,12 @@ function HotelDetailScreen(): React.JSX.Element {
     return days > 0 ? days : 1;
   }, [startDate, endDate]);
 
-  // 模拟根据 hotelId 获取数据（实际应调用 API）
-  // 根据 hotelId 从列表页 Mock 数据中查找对应酒店（简单模拟），找不到则回退到 MOCK_DETAIL
-  // 注意：实际项目中应调用 getHotelDetail(hotelId) 接口
-  const mockFromList = [
-    {
-      id: '1',
-      name: '上海和平饭店',
-      nameEn: 'Fairmont Peace Hotel',
-      address: '黄浦区南京东路20号',
-      starLevel: 5,
-      price: 1888,
-      score: 4.8,
-      comment: '“位置绝佳，服务一流”',
-      roomTypes: [
-        { id: 'r1', name: '费尔蒙大床房', bedType: '大床2米', price: 1888, area: '45㎡', breakfast: '含双早' },
-        { id: 'r2', name: '费尔蒙双床房', bedType: '双床1.2米', price: 2088, area: '45㎡', breakfast: '含双早' },
-        { id: 'r3', name: '九国套房', bedType: '特大床', price: 5888, area: '178㎡', breakfast: '行政礼遇' },
-      ],
-    },
-    {
-      id: '2',
-      name: '上海宝格丽酒店',
-      nameEn: 'Bulgari Hotel Shanghai',
-      address: '静安区河南北路33号',
-      starLevel: 5,
-      price: 4888,
-      score: 4.9,
-      comment: '“奢华体验，外滩景观”',
-      roomTypes: [
-        { id: 'r1', name: '高级城市景观房', bedType: '大床2米', price: 4888, area: '60㎡', breakfast: '含双早' },
-        { id: 'r2', name: '精选外滩景观房', bedType: '特大床', price: 6888, area: '60㎡', breakfast: '含双早' },
-        { id: 'r3', name: '宝格丽套房', bedType: '特大床', price: 12888, area: '100㎡', breakfast: '行政礼遇' },
-      ],
-    },
-    {
-      id: '3',
-      name: '全季酒店(上海南京东路步行街店)',
-      nameEn: 'Ji Hotel (Shanghai Nanjing East Road)',
-      address: '黄浦区九江路',
-      starLevel: 3,
-      price: 459,
-      score: 4.6,
-      comment: '“性价比高，出行方便”',
-      roomTypes: [
-        { id: 'r1', name: '标准大床房', bedType: '大床1.8米', price: 459, area: '20㎡', breakfast: '无早' },
-        { id: 'r2', name: '高级大床房', bedType: '大床1.8米', price: 529, area: '25㎡', breakfast: '含双早' },
-      ],
-    },
-    {
-      id: '4',
-      name: '亚朵酒店(外滩店)',
-      nameEn: 'Atour Hotel (The Bund)',
-      address: '黄浦区延安东路',
-      starLevel: 4,
-      price: 689,
-      score: 4.7,
-      comment: '“人文气息，服务贴心”',
-      roomTypes: [
-        { id: 'r1', name: '行政大床房', bedType: '大床1.8米', price: 689, area: '30㎡', breakfast: '含双早' },
-        { id: 'r2', name: '几木双床房', bedType: '双床1.2米', price: 759, area: '35㎡', breakfast: '含双早' },
-      ],
-    },
-  ].find(h => h.id === hotelId);
-
-  const detail = {
-    ...MOCK_DETAIL,
-    ...mockFromList, // 覆盖基础信息
-    name: mockFromList ? mockFromList.name : MOCK_DETAIL.name,
-    // 如果 mockFromList 里有 score/comment，就用 mockFromList 的，否则用 MOCK_DETAIL 的默认值
-    score: mockFromList?.score || 4.8,
-    comment: mockFromList?.comment || '“位置绝佳，服务一流”',
-  };
-
   const renderRoomItem = (room: RoomType) => (
     <View key={room.id} style={styles.roomCard}>
       <View style={styles.roomContent}>
-        <Image 
-          source={{uri: (room as any).image || detail.images[0]}} 
-          style={styles.roomImage} 
+        <Image
+          source={{uri: (room as any).image || detail?.images[0]}}
+          style={styles.roomImage}
         />
         <View style={styles.roomInfo}>
           <Text style={styles.roomName}>{room.name}</Text>
@@ -214,6 +119,25 @@ function HotelDetailScreen(): React.JSX.Element {
       </View>
     </View>
   );
+
+  if (loading || !detail) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <ActivityIndicator size="large" color="#0066CC" />
+        <Text style={styles.loadingText}>正在加载酒店详情...</Text>
+        
+        {/* 允许用户在加载失败或卡住时返回 */}
+        <TouchableOpacity
+          style={[styles.backButton, {top: insets.top + 10}]}
+          onPress={() => navigation.goBack()}>
+          <View style={styles.backButtonBg}>
+            <CaretLeft color="#fff" size={20} weight="bold" />
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -241,8 +165,12 @@ function HotelDetailScreen(): React.JSX.Element {
             <View style={styles.scoreTag}>
               <Text style={styles.scoreText}>{detail.score || 4.8}分</Text>
             </View>
-            <Text style={styles.commentText}>“{detail.comment || '位置绝佳，服务一流'}”</Text>
-            <TouchableOpacity style={styles.detailLink} onPress={() => Alert.alert('点评', '查看所有点评')}>
+            <Text style={styles.commentText}>
+              “{detail.comment || '位置绝佳，服务一流'}”
+            </Text>
+            <TouchableOpacity
+              style={styles.detailLink}
+              onPress={() => Alert.alert('点评', '查看所有点评')}>
               <Text style={styles.detailLinkText}>2388条点评</Text>
               <CaretRight size={12} color="#0066CC" />
             </TouchableOpacity>
@@ -250,11 +178,13 @@ function HotelDetailScreen(): React.JSX.Element {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addressRow}
             onPress={() => Alert.alert('地图', '跳转地图页')}>
             <MapPin size={16} color="#333" weight="fill" />
-            <Text style={styles.address} numberOfLines={1}>{detail.address}</Text>
+            <Text style={styles.address} numberOfLines={1}>
+              {detail.address}
+            </Text>
             <Text style={styles.mapLink}>地图</Text>
             <CaretRight size={12} color="#666" />
           </TouchableOpacity>
@@ -262,7 +192,7 @@ function HotelDetailScreen(): React.JSX.Element {
           <View style={styles.divider} />
 
           {/* 设施概览 */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.facilityRow}
             onPress={() => Alert.alert('设施', '查看所有设施')}>
             <View style={styles.facilityList}>
@@ -271,7 +201,9 @@ function HotelDetailScreen(): React.JSX.Element {
                   {fac}
                 </Text>
               ))}
-              <Text style={styles.facilityMore}>+{detail.facilities.length - 4}</Text>
+              <Text style={styles.facilityMore}>
+                +{detail.facilities.length - 4}
+              </Text>
             </View>
             <View style={styles.facilityLink}>
               <Text style={styles.facilityLinkText}>设施详情</Text>
@@ -324,6 +256,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     position: 'relative',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#666',
+    fontSize: 14,
   },
   backButton: {
     position: 'absolute',
