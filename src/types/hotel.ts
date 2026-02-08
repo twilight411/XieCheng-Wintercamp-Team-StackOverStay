@@ -42,6 +42,7 @@ export interface HotelDetail {
   roomTypes: RoomType[];
   score?: number;
   comment?: string;
+  commentCount?: number;
   [key: string]: unknown;
 }
 

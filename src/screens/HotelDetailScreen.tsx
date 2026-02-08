@@ -24,9 +24,57 @@ import {
   MapPin,
   ShareNetwork,
   Heart,
+  WifiHigh,
+  SwimmingPool,
+  Barbell,
+  Car,
+  ForkKnife,
+  ProjectorScreenChart,
+  Sparkle,
+  Martini,
+  Check,
+  Airplane,
+  User,
+  Suitcase,
+  Lock,
+  Alarm,
 } from 'phosphor-react-native';
 
 type HotelDetailRouteProp = RouteProp<RootStackParamList, 'HotelDetail'>;
+
+const getFacilityIcon = (name: string, size = 14, color = '#666') => {
+  const props = {size, color, weight: 'fill' as const};
+  switch (name) {
+    case '免费WiFi':
+      return <WifiHigh {...props} />;
+    case '游泳池':
+      return <SwimmingPool {...props} />;
+    case '健身房':
+      return <Barbell {...props} />;
+    case '停车场':
+      return <Car {...props} />;
+    case '餐厅':
+      return <ForkKnife {...props} />;
+    case '会议室':
+      return <ProjectorScreenChart {...props} />;
+    case 'SPA':
+      return <Sparkle {...props} />;
+    case '酒吧':
+      return <Martini {...props} />;
+    case '接送机':
+      return <Airplane {...props} />;
+    case '管家服务':
+      return <User {...props} />;
+    case '行李寄存':
+      return <Suitcase {...props} />;
+    case '前台保险柜':
+      return <Lock {...props} />;
+    case '叫醒服务':
+      return <Alarm {...props} />;
+    default:
+      return <Check {...props} />;
+  }
+};
 
 function HotelDetailScreen(): React.JSX.Element {
   const route = useRoute<HotelDetailRouteProp>();
@@ -159,19 +207,21 @@ function HotelDetailScreen(): React.JSX.Element {
         {/* 基础信息区 */}
         <View style={styles.infoSection}>
           <Text style={styles.name}>{detail.name}</Text>
-          <Text style={styles.enName}>{detail.nameEn}</Text>
+          {detail.nameEn ? (
+            <Text style={styles.enName}>{detail.nameEn}</Text>
+          ) : null}
 
           <View style={styles.scoreRow}>
             <View style={styles.scoreTag}>
-              <Text style={styles.scoreText}>{detail.score || 4.8}分</Text>
+              <Text style={styles.scoreText}>{detail.score}分</Text>
             </View>
-            <Text style={styles.commentText}>
-              “{detail.comment || '位置绝佳，服务一流'}”
-            </Text>
+            <Text style={styles.commentText}>{detail.comment}</Text>
             <TouchableOpacity
               style={styles.detailLink}
               onPress={() => Alert.alert('点评', '查看所有点评')}>
-              <Text style={styles.detailLinkText}>2388条点评</Text>
+              <Text style={styles.detailLinkText}>
+                {detail.commentCount ? `${detail.commentCount}条点评` : '暂无点评'}
+              </Text>
               <CaretRight size={12} color="#0066CC" />
             </TouchableOpacity>
           </View>
@@ -192,24 +242,16 @@ function HotelDetailScreen(): React.JSX.Element {
           <View style={styles.divider} />
 
           {/* 设施概览 */}
-          <TouchableOpacity
-            style={styles.facilityRow}
-            onPress={() => Alert.alert('设施', '查看所有设施')}>
+          <View style={styles.facilityRow}>
             <View style={styles.facilityList}>
-              {detail.facilities.slice(0, 4).map((fac, index) => (
-                <Text key={index} style={styles.facilityTagSimple}>
-                  {fac}
-                </Text>
+              {detail.facilities.map((fac, index) => (
+                <View key={index} style={styles.facilityItem}>
+                  {getFacilityIcon(fac, 16, '#666')}
+                  <Text style={styles.facilityText}>{fac}</Text>
+                </View>
               ))}
-              <Text style={styles.facilityMore}>
-                +{detail.facilities.length - 4}
-              </Text>
             </View>
-            <View style={styles.facilityLink}>
-              <Text style={styles.facilityLinkText}>设施详情</Text>
-              <CaretRight size={12} color="#666" />
-            </View>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* 日期选择条 */}
@@ -395,8 +437,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginRight: 2,
   },
-  facilityTagSimple: {
-    fontSize: 12,
+  facilityItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20%',
+    marginBottom: 8,
+    gap: 4,
+  },
+  facilityText: {
+    fontSize: 10,
     color: '#666',
   },
   facilityMore: {
