@@ -290,143 +290,14 @@ const DETAIL_TEMPLATES: Record<string, Partial<HotelDetail>> = {
 // Service Methods
 // ============================================================================
 
-/**
- * 获取酒店列表（分页、筛选、搜索）
- * 现在使用内存 Mock 数据模拟后端逻辑
- */
 export const getHotelList = (
   params: ListParams,
 ): Promise<ListResult<HotelListItem>> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const city = params.city || '上海';
-      let allData = ALL_MOCK_HOTELS[city] || [];
-
-      // 1. 关键字搜索
-      if (params.keyword) {
-        const keyword = params.keyword.toLowerCase();
-        allData = allData.filter(item => 
-          item.name.toLowerCase().includes(keyword) || 
-          (item.nameEn && item.nameEn.toLowerCase().includes(keyword)) ||
-          (item.address && item.address.includes(keyword))
-        );
-      }
-
-      // 2. 星级筛选
-      if (params.starLevel) {
-        const stars = Array.isArray(params.starLevel) ? params.starLevel : [params.starLevel];
-        if (stars.length > 0) {
-          allData = allData.filter(item => stars.includes(item.starLevel));
-        }
-      }
-
-      // 3. 价格筛选
-      if (params.priceMin !== undefined) {
-        allData = allData.filter(item => (item.minPrice || 0) >= (params.priceMin as number));
-      }
-      if (params.priceMax !== undefined) {
-        allData = allData.filter(item => (item.minPrice || 0) <= (params.priceMax as number));
-      }
-
-      // 3.5 设施筛选
-      const facilities = params.facilities as string[];
-      if (facilities && facilities.length > 0) {
-        allData = allData.filter(item => {
-            if (!item.facilities) return false;
-            return facilities.every((fac: string) => item.facilities?.includes(fac));
-        });
-      }
-
-      // 3.6 位置筛选
-      const locationValue = params.locationValue as string;
-      if (locationValue) {
-        allData = allData.filter(item => 
-          item.address?.includes(locationValue) || 
-          item.name.includes(locationValue)
-        );
-      }
-
-      // 3.7 排序
-      if (params.sort) {
-        allData = [...allData]; // Shallow copy for sorting
-        if (params.sort === 'price_asc') {
-          allData.sort((a, b) => (a.minPrice || 0) - (b.minPrice || 0));
-        } else if (params.sort === 'price_desc') {
-          allData.sort((a, b) => (b.minPrice || 0) - (a.minPrice || 0));
-        } else if (params.sort === 'score_desc') {
-          allData.sort((a, b) => (b.score || 4.5) - (a.score || 4.5));
-        }
-      }
-
-      // 4. 分页逻辑
-      const page = params.page || 1;
-      const pageSize = params.pageSize || 10;
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      const pageData = allData.slice(start, end);
-
-      resolve({
-        list: pageData,
-        page,
-        pageSize,
-        total: allData.length,
-      });
-    }, 500); // 模拟网络延迟
-  });
+  return apiClient.get('/hotels', {params});
 };
 
-/**
- * 获取酒店详情（含房型与价格）
- * 自动匹配列表数据，确保信息一致性
- */
-export const getHotelDetail = async (hotelId: string): Promise<HotelDetail> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // 1. 在所有 Mock 数据中查找对应 ID 的酒店
-      let foundHotel: HotelListItem | undefined;
-      for (const city in ALL_MOCK_HOTELS) {
-        const hotel = ALL_MOCK_HOTELS[city].find(h => h.id === hotelId);
-        if (hotel) {
-          foundHotel = hotel;
-          break;
-        }
-      }
-
-      // 2. 如果没找到，返回默认数据（防止报错）
-      if (!foundHotel) {
-        foundHotel = ALL_MOCK_HOTELS['上海'][0];
-      }
-
-      // 3. 根据星级选择详情模板
-      let template = DETAIL_TEMPLATES['upscale'];
-      if (foundHotel.starLevel >= 5) {
-        template = DETAIL_TEMPLATES['luxury'];
-      } else if (foundHotel.starLevel <= 3) {
-        template = DETAIL_TEMPLATES['budget'];
-      }
-
-      // 4. 合并数据：列表基础信息 + 模板详情信息
-      const fullDetail: HotelDetail = {
-        id: hotelId,
-        name: foundHotel.name,
-        nameEn: foundHotel.nameEn,
-        address: foundHotel.address || '地址未知',
-        starLevel: foundHotel.starLevel,
-        score: foundHotel.score || 4.5,
-        images: foundHotel.images,
-        // 优先使用列表页已有的设施信息，如果没有则使用模板
-        facilities: foundHotel.facilities || template.facilities || [],
-        comment: template.comment,
-        commentCount: template.commentCount,
-        roomTypes: (template.roomTypes || []).map(r => ({
-          ...r,
-          image: foundHotel?.images[0] // 房型图暂时复用首图
-        })),
-      };
-
-      resolve(fullDetail);
-    }, 500);
-  });
+export const getHotelDetail = (hotelId: string): Promise<HotelDetail> => {
+  return apiClient.get(`/hotels/${hotelId}`);
 };
 
 /**

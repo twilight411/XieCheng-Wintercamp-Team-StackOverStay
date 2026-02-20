@@ -76,8 +76,89 @@ function HotelListScreen(): React.JSX.Element {
   }, [filterLocation, filterPriceStar, filterMore]);
 
   const [loading, setLoading] = React.useState(false);
-  // 初始化为空数组
   const [hotelList, setHotelList] = React.useState<HotelListItemType[]>([]);
+
+  const applyLocalFilters = useCallback(
+    (list: HotelListItemType[]): HotelListItemType[] => {
+      let data = [...list];
+
+      if (keyword) {
+        const kwLower = keyword.toLowerCase();
+        data = data.filter(item => {
+          const nameLower = item.name.toLowerCase();
+          const nameEnLower = (item.nameEn || '').toLowerCase();
+          const addressStr = item.address || '';
+          return (
+            nameLower.includes(kwLower) ||
+            nameEnLower.includes(kwLower) ||
+            addressStr.includes(keyword)
+          );
+        });
+      }
+
+      if (filterPriceStar?.stars?.length) {
+        const starNums = filterPriceStar.stars.map(Number);
+        data = data.filter(item => {
+          const level = item.starLevel;
+          const approx =
+            level >= 4.5 ? 5 :
+            level >= 3.5 ? 4 :
+            level >= 2.5 ? 3 :
+            level >= 1.5 ? 2 : 1;
+          return starNums.includes(approx);
+        });
+      }
+
+      if (filterPriceStar?.price) {
+        const parts = filterPriceStar.price.split('-').map(Number);
+        const min = parts[0];
+        const max = parts[1];
+        data = data.filter(item => {
+          const price = item.minPrice ?? 0;
+          if (!Number.isNaN(min) && price < min) return false;
+          if (!Number.isNaN(max) && price > max) return false;
+          return true;
+        });
+      }
+
+      if (filterLocation?.value) {
+        const loc = filterLocation.value;
+        data = data.filter(item => {
+          const addr = item.address || '';
+          return addr.includes(loc) || item.name.includes(loc);
+        });
+      }
+
+      if (filterMore) {
+        const selected: string[] = [];
+        Object.values(filterMore).forEach(arr => selected.push(...arr));
+        if (selected.length) {
+          data = data.filter(item => {
+            if (!item.facilities || item.facilities.length === 0) return false;
+            return selected.every(tag => item.facilities!.includes(tag));
+          });
+        }
+      }
+
+      if (filterSort && filterSort !== 'default') {
+        const sorted = [...data];
+        if (filterSort === 'price_asc') {
+          sorted.sort((a, b) => (a.minPrice ?? 0) - (b.minPrice ?? 0));
+        } else if (filterSort === 'price_desc') {
+          sorted.sort((a, b) => (b.minPrice ?? 0) - (a.minPrice ?? 0));
+        } else if (filterSort === 'score_desc') {
+          sorted.sort(
+            (a, b) =>
+              (b.score ?? b.starLevel ?? 0) - (a.score ?? a.starLevel ?? 0),
+          );
+        }
+        data = sorted;
+      }
+
+      return data;
+    },
+    [keyword, filterPriceStar, filterLocation, filterMore, filterSort],
+  );
 
   // 构造请求参数
   const buildParams = useCallback(() => {
@@ -142,17 +223,16 @@ function HotelListScreen(): React.JSX.Element {
 
     try {
       const result = await getHotelList(params);
-      setHotelList(result.list);
-      // 判断是否还有更多：如果当前返回数量小于 pageSize，说明没有更多了
-      // 或者比较 total
-      setHasMore(result.total > result.list.length); 
+      const filtered = applyLocalFilters(result.list);
+      setHotelList(filtered);
+      setHasMore(result.total > filtered.length); 
     } catch (error) {
       console.error('Fetch error:', error);
       Alert.alert('加载失败', '请稍后重试');
     } finally {
       setLoading(false);
     }
-  }, [buildParams]);
+  }, [buildParams, applyLocalFilters]);
 
   // 加载更多
   const loadMoreData = useCallback(async () => {
@@ -167,17 +247,17 @@ function HotelListScreen(): React.JSX.Element {
 
     try {
       const result = await getHotelList(params);
-      setHotelList(prev => [...prev, ...result.list]);
+      const filtered = applyLocalFilters(result.list);
+      setHotelList(prev => [...prev, ...filtered]);
       setPage(nextPage);
-      // 判断是否还有更多
-      const currentCount = hotelList.length + result.list.length;
+      const currentCount = hotelList.length + filtered.length;
       setHasMore(result.total > currentCount);
     } catch (error) {
       console.error('Load more error:', error);
     } finally {
       setLoadingMore(false);
     }
-  }, [loading, loadingMore, hasMore, page, buildParams, hotelList.length]);
+  }, [loading, loadingMore, hasMore, page, buildParams, hotelList.length, applyLocalFilters]);
 
   // 监听筛选条件变化，自动触发刷新
   React.useEffect(() => {
