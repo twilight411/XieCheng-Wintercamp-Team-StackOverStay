@@ -47,8 +47,13 @@ export const HotelListItem: React.FC<Props> = ({item, onPress, style}) => {
 
         <View style={styles.row}>
           {renderStars(item.starLevel)}
-          <Text style={styles.score}>4.8分</Text>
-          {/* 注：评分字段接口暂无，暂时写死或后续补充 */}
+          <Text style={styles.score}>
+            {item.score != null
+              ? `${item.score}分`
+              : item.starLevel != null
+              ? `${item.starLevel}分`
+              : '--'}
+          </Text>
         </View>
 
         <Text style={styles.address} numberOfLines={1}>
