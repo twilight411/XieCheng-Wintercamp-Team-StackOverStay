@@ -14,7 +14,7 @@ import {
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
-import { getHotelList } from '../services/hotel';
+import { getHotelList, getHotelDetail } from '../services/hotel';
 import type {RootStackParamList} from '../navigation/types';
 import type {HotelListItem as HotelListItemType, ListParams} from '../types';
 import {useSearchStore} from '../stores/searchStore';
@@ -37,7 +37,15 @@ function HotelListScreen(): React.JSX.Element {
   const route = useRoute<HotelListRouteProp>();
 
   // 从参数或全局 store 获取初始值（与首页筛选条件同步）
-  const { city: paramCity, keyword: paramKeyword, checkIn: initialCheckIn, checkOut: initialCheckOut } = route.params || {};
+  const {
+    city: paramCity,
+    keyword: paramKeyword,
+    checkIn: initialCheckIn,
+    checkOut: initialCheckOut,
+    starLevel: paramStarLevel,
+    priceMin: paramPriceMin,
+    priceMax: paramPriceMax,
+  } = route.params || {};
   const storeCity = useSearchStore(s => s.city);
   const setStoreCity = useSearchStore(s => s.setCity);
 
@@ -68,7 +76,26 @@ function HotelListScreen(): React.JSX.Element {
   
   // 筛选状态
   const [filterLocation, setFilterLocation] = React.useState<{type: string; value: string} | null>(null);
-  const [filterPriceStar, setFilterPriceStar] = React.useState<{stars: string[]; price: string | null} | null>(null);
+  const initialStarsFromParams: string[] = React.useMemo(() => {
+    if (paramStarLevel == null) return [];
+    const arr = Array.isArray(paramStarLevel) ? paramStarLevel : [paramStarLevel];
+    return arr.map(v => String(v));
+  }, [paramStarLevel]);
+  const initialPriceFromParams: string | null = React.useMemo(() => {
+    if (paramPriceMin == null && paramPriceMax == null) return null;
+    if (paramPriceMin === 0 && paramPriceMax === 300) return '0-300';
+    if (paramPriceMin === 300 && paramPriceMax === 600) return '300-600';
+    if (paramPriceMin === 600 && paramPriceMax === 1000) return '600-1000';
+    if (paramPriceMin === 1000 && (paramPriceMax == null || paramPriceMax === undefined)) {
+      return '1000-9999';
+    }
+    return null;
+  }, [paramPriceMin, paramPriceMax]);
+  const [filterPriceStar, setFilterPriceStar] = React.useState<{stars: string[]; price: string | null} | null>(
+    initialStarsFromParams.length || initialPriceFromParams
+      ? {stars: initialStarsFromParams, price: initialPriceFromParams}
+      : null,
+  );
   const [filterSort, setFilterSort] = React.useState('default');
   const [filterMore, setFilterMore] = React.useState<Record<string, string[]> | null>(null);
 
@@ -102,7 +129,6 @@ function HotelListScreen(): React.JSX.Element {
   const applyLocalFilters = useCallback(
     (list: HotelListItemType[]): HotelListItemType[] => {
       let data = [...list];
-      // 关键词筛选已由后端完成，不再在前端对 keyword 做二次过滤
 
       if (filterPriceStar?.stars?.length) {
         const starNums = filterPriceStar.stars.map(Number);
@@ -137,17 +163,6 @@ function HotelListScreen(): React.JSX.Element {
         });
       }
 
-      if (filterMore) {
-        const selected: string[] = [];
-        Object.values(filterMore).forEach(arr => selected.push(...arr));
-        if (selected.length) {
-          data = data.filter(item => {
-            if (!item.facilities || item.facilities.length === 0) return false;
-            return selected.every(tag => item.facilities!.includes(tag));
-          });
-        }
-      }
-
       if (filterSort && filterSort !== 'default') {
         const sorted = [...data];
         if (filterSort === 'price_asc') {
@@ -165,7 +180,7 @@ function HotelListScreen(): React.JSX.Element {
 
       return data;
     },
-    [filterPriceStar, filterLocation, filterMore, filterSort],
+    [filterPriceStar, filterLocation, filterSort],
   );
 
   // 构造请求参数
@@ -231,7 +246,32 @@ function HotelListScreen(): React.JSX.Element {
 
     try {
       const result = await getHotelList(params);
-      const filtered = applyLocalFilters(result.list);
+      let baseList = result.list;
+
+      if (filterMore) {
+        const selected: string[] = [];
+        Object.values(filterMore).forEach(arr => selected.push(...arr));
+        if (selected.length) {
+          const details = await Promise.all(
+            baseList.map(item =>
+              getHotelDetail(item.id).catch(() => null),
+            ),
+          );
+          const allowedIds = new Set<string>();
+          details.forEach((detail, index) => {
+            if (!detail || !detail.facilities || detail.facilities.length === 0) {
+              return;
+            }
+            const ok = selected.every(tag => detail.facilities!.includes(tag));
+            if (ok) {
+              allowedIds.add(baseList[index].id);
+            }
+          });
+          baseList = baseList.filter(item => allowedIds.has(item.id));
+        }
+      }
+
+      const filtered = applyLocalFilters(baseList);
       setHotelList(filtered);
       setHasMore(result.total > filtered.length); 
     } catch (error: any) {
@@ -248,7 +288,7 @@ function HotelListScreen(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [buildParams, applyLocalFilters]);
+  }, [buildParams, applyLocalFilters, filterMore]);
 
   // 加载更多
   const loadMoreData = useCallback(async () => {
@@ -263,7 +303,32 @@ function HotelListScreen(): React.JSX.Element {
 
     try {
       const result = await getHotelList(params);
-      const filtered = applyLocalFilters(result.list);
+      let baseList = result.list;
+
+      if (filterMore) {
+        const selected: string[] = [];
+        Object.values(filterMore).forEach(arr => selected.push(...arr));
+        if (selected.length) {
+          const details = await Promise.all(
+            baseList.map(item =>
+              getHotelDetail(item.id).catch(() => null),
+            ),
+          );
+          const allowedIds = new Set<string>();
+          details.forEach((detail, index) => {
+            if (!detail || !detail.facilities || detail.facilities.length === 0) {
+              return;
+            }
+            const ok = selected.every(tag => detail.facilities!.includes(tag));
+            if (ok) {
+              allowedIds.add(baseList[index].id);
+            }
+          });
+          baseList = baseList.filter(item => allowedIds.has(item.id));
+        }
+      }
+
+      const filtered = applyLocalFilters(baseList);
       setHotelList(prev => [...prev, ...filtered]);
       setPage(nextPage);
       const currentCount = hotelList.length + filtered.length;
@@ -273,7 +338,7 @@ function HotelListScreen(): React.JSX.Element {
     } finally {
       setLoadingMore(false);
     }
-  }, [loading, loadingMore, hasMore, page, buildParams, hotelList.length, applyLocalFilters]);
+  }, [loading, loadingMore, hasMore, page, buildParams, hotelList.length, applyLocalFilters, filterMore]);
 
   // 监听筛选条件变化，自动触发刷新
   React.useEffect(() => {
