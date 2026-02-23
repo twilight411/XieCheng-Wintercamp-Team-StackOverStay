@@ -1,5 +1,16 @@
 这是一个基于 [**React Native**](https://reactnative.dev) 的新项目，使用 [`@react-native-community/cli`](https://github.com/react-native-community/cli) 初始化。
 
+# 后端与真机联调
+
+- **后端**：在后端项目目录执行 `docker-compose up`，启动时会自动迁移并填充数据。
+- **API 地址**：在 `src/constants/index.ts` 中配置 `API_BASE_URL`。
+- **真机调试（解决 Network Error / 图片不显示）**：
+  1. 电脑和手机连**同一 WiFi**。
+  2. 查电脑局域网 IP：Windows 在 cmd 运行 `ipconfig`，看「IPv4 地址」（如 `192.168.1.100`）。
+  3. 把 `API_BASE_URL` 改成 `http://你的IP:3000/api`（端口与后端一致）。
+  4. 后端需监听 `0.0.0.0`，不能只监听 `127.0.0.1`。
+  5. 若后端返回的图片地址是 localhost 或相对路径，前端会用同一 host 自动转成真机可访问的 URL，无需改后端。
+
 # 快速开始
 
 > **提示**：请确保你已完成 [React Native 环境配置](https://reactnative.dev/docs/environment-setup)（至少到"创建新应用"步骤）再继续。

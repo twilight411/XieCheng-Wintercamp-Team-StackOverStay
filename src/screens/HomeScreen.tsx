@@ -23,8 +23,10 @@ import {getBanners} from '../services/hotel';
 import {useSearchStore, type SearchState} from '../stores/searchStore';
 import {getCurrentCity} from '../services/geo';
 import DatePickerModal from '../components/DatePickerModal';
+import {CityPicker} from '../components/CityPicker';
 import {FolderTabs} from '../components/FolderTabs';
 import {QUICK_TAGS, type QuickTagItem} from '../constants/tags';
+import {getImageUrl} from '../constants';
 import {Theme} from '../constants/theme';
 import {MapPin} from 'phosphor-react-native';
 
@@ -78,17 +80,56 @@ function HomeScreen(): React.JSX.Element {
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [bannerLoading, setBannerLoading] = useState<boolean>(false);
   const [dateModalVisible, setDateModalVisible] = useState<boolean>(false);
+  const [cityPickerVisible, setCityPickerVisible] = useState<boolean>(false);
   const [activeFolderTab, setActiveFolderTab] = useState(0);
+  const [locating, setLocating] = useState(false);
+  const [locationSuccessBanner, setLocationSuccessBanner] = useState<string | null>(null);
+  const hasTriedLocation = React.useRef(false);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
+  const showLocationSuccess = (cityName: string) => {
+    setCity(cityName);
+    setLocationSuccessBanner('已定位到 ' + cityName);
+    setTimeout(() => setLocationSuccessBanner(null), 3000);
+  };
+
+  // 启动时尝试定位一次，更新当前城市（权限允许且定位成功时）
   useEffect(() => {
-    if (!city) {
-      getCurrentCity()
-        .then(info => setCity(info.city))
-        .catch(() => {});
-    }
-  }, [city, setCity]);
+    if (hasTriedLocation.current) return;
+    hasTriedLocation.current = true;
+    getCurrentCity()
+      .then(info => showLocationSuccess(info.city))
+      .catch(() => {});
+  }, [setCity]);
+
+  const handleLocate = () => {
+    setLocating(true);
+    const hardTimeoutMs = 15000;
+    const timeoutPromise = new Promise<{city: string}>((_, reject) =>
+      setTimeout(() => reject(new Error('定位超时')), hardTimeoutMs),
+    );
+    Promise.race([getCurrentCity(), timeoutPromise])
+      .then((info) => {
+        showLocationSuccess(info.city);
+      })
+      .catch((err: any) => {
+        const msg = err?.message || '';
+        const isTimeout = msg.includes('超时');
+        const isReverseGeo = msg.includes('逆地理');
+        let detail = '请检查是否已开启定位权限；模拟器请用真机或设置模拟位置。';
+        if (isTimeout || isReverseGeo) {
+          detail = '可能是网络不稳定、GPS 信号弱或逆地理服务暂时不可用。若权限已开，可点「重试」再试，或直接点击上方城市手动选择。';
+        }
+        Alert.alert('定位失败', detail, [
+          {text: '知道了'},
+          {text: '重试', onPress: () => handleLocate()},
+        ]);
+      })
+      .finally(() => {
+        setLocating(false);
+      });
+  };
 
   useEffect(() => {
     setBannerLoading(true);
@@ -191,7 +232,7 @@ function HomeScreen(): React.JSX.Element {
                   onPress={() => goToDetail(item.hotelId)}
                   style={styles.bannerSlide}>
                   <Image
-                    source={{ uri: item.imageUrl || BANNER_PLACEHOLDER }}
+                    source={{ uri: getImageUrl(item.imageUrl) || BANNER_PLACEHOLDER }}
                     style={styles.bannerImage}
                     resizeMode="cover"
                   />
@@ -215,9 +256,23 @@ function HomeScreen(): React.JSX.Element {
           <FolderTabs activeTab={activeFolderTab} onChange={setActiveFolderTab} />
 
           <View style={styles.cardBody}>
+            {/* 定位成功提示条：定位成功后显示几秒，并已更新上方城市 */}
+            {locationSuccessBanner ? (
+              <View style={styles.locationBanner}>
+                <MapPin size={16} color="#fff" weight="fill" />
+                <Text style={styles.locationBannerText}>{locationSuccessBanner}</Text>
+              </View>
+            ) : null}
+
             {/* 城市 + 搜索 */}
             <View style={styles.row}>
-              <Text style={styles.cityText}>{city}</Text>
+              <TouchableOpacity
+                style={styles.cityTouchable}
+                onPress={() => setCityPickerVisible(true)}
+                activeOpacity={0.8}>
+                <Text style={styles.cityText}>{city}</Text>
+                <Text style={styles.cityArrow}>▼</Text>
+              </TouchableOpacity>
               <View style={styles.divider} />
               <View style={styles.searchInline}>
                 <TextInput
@@ -232,14 +287,21 @@ function HomeScreen(): React.JSX.Element {
               </View>
               <TouchableOpacity
                 style={styles.locationButton}
-                onPress={() => {
-                  getCurrentCity()
-                    .then(info => setCity(info.city))
-                    .catch(() => {});
-                }}
+                onPress={handleLocate}
+                disabled={locating}
                 activeOpacity={0.7}>
-                <MapPin size={26} color={Theme.brandPrimary} weight="regular" />
-                <Text style={styles.locationButtonLabel}>我的附近</Text>
+                <MapPin
+                  size={26}
+                  color={locating ? Theme.textMuted : Theme.brandPrimary}
+                  weight="regular"
+                />
+                <Text
+                  style={[
+                    styles.locationButtonLabel,
+                    locating && styles.locationButtonLabelDisabled,
+                  ]}>
+                  {locating ? '定位中…' : '我的附近'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -261,19 +323,21 @@ function HomeScreen(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
 
-            {/* 星级 / 价格 */}
+            {/* 星级 / 价格 筛选 */}
             <View style={styles.row}>
               <TouchableOpacity
                 style={styles.flex1}
                 activeOpacity={0.8}
                 onPress={showStarLevelPicker}>
-                <Text style={styles.rowValue}>1间房 · 星级 {formatStarLevel(starLevel)}</Text>
+                <Text style={styles.rowHint}>星级</Text>
+                <Text style={styles.rowValue}>{formatStarLevel(starLevel)}</Text>
               </TouchableOpacity>
               <View style={styles.divider} />
               <TouchableOpacity
                 style={styles.flex1}
                 activeOpacity={0.8}
                 onPress={showPriceRangePicker}>
+                <Text style={styles.rowHint}>价格</Text>
                 <Text style={styles.rowValue} numberOfLines={1}>{formatPriceRange()}</Text>
               </TouchableOpacity>
             </View>
@@ -348,6 +412,15 @@ function HomeScreen(): React.JSX.Element {
         }}
         onClose={() => setDateModalVisible(false)}
       />
+      <CityPicker
+        visible={cityPickerVisible}
+        currentCity={city}
+        onClose={() => setCityPickerVisible(false)}
+        onSelect={c => {
+          setCity(c);
+          setCityPickerVisible(false);
+        }}
+      />
     </>
   );
 }
@@ -388,11 +461,11 @@ const styles = StyleSheet.create({
   },
   bannerTitleWrap: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
     padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   bannerTitle: {
     fontSize: 16,
@@ -409,6 +482,21 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     padding: 24,
+  },
+  locationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.brandPrimary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  locationBannerText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
   },
   row: {
     flexDirection: 'row',
@@ -459,15 +547,27 @@ const styles = StyleSheet.create({
     color: Theme.textMuted,
     marginTop: 4,
   },
+  locationButtonLabelDisabled: {
+    opacity: 0.8,
+  },
   searchInput: {
     fontSize: 14,
     color: Theme.textPrimary,
     padding: 0,
   },
+  cityTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   cityText: {
     fontSize: 20,
     fontWeight: '700',
     color: Theme.textPrimary,
+  },
+  cityArrow: {
+    fontSize: 10,
+    color: Theme.textMuted,
+    marginLeft: 4,
   },
   tagsWrap: {
     flexDirection: 'row',

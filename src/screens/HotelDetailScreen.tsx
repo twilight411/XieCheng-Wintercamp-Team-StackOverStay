@@ -16,6 +16,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {RootStackParamList} from '../navigation/types';
 import {ImageCarousel} from '../components/ImageCarousel';
 import type {HotelDetail, RoomType} from '../types/hotel';
+import {getImageUrl} from '../constants';
 import {getHotelDetail} from '../services/hotel';
 
 import {
@@ -140,7 +141,7 @@ function HotelDetailScreen(): React.JSX.Element {
     <View key={room.id} style={styles.roomCard}>
       <View style={styles.roomContent}>
         <Image
-          source={{uri: (room as any).image || detail?.images[0]}}
+          source={{uri: getImageUrl((room as any).image || detail?.images?.[0])}}
           style={styles.roomImage}
         />
         <View style={styles.roomInfo}>

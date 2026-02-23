@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { Theme } from '../constants/theme';
 
 /** 文件夹页签：灰条一整条 + 仅激活组叠一层白色梯形；左半块左缘垂直+左上圆角，右半块右缘垂直+右上圆角 */
@@ -16,6 +16,7 @@ const TAB_GROUPS: TabItem[][] = [
   [{ label: '民宿', id: 2 }, { label: '钟点房', id: 3 }],
 ];
 
+/** 激活态小装饰图标。避免使用 LinearGradient，因 Android 上 RNSVGLinearGradient 易出现 ViewManager 未注册问题。 */
 function SplashIcon() {
   return (
     <Svg
@@ -23,21 +24,9 @@ function SplashIcon() {
       height={10}
       viewBox="0 0 28 14"
       style={styles.splashIcon}>
-      <Defs>
-        <LinearGradient
-          id="splash_gradient"
-          x1="2"
-          y1="12"
-          x2="26"
-          y2="2"
-          gradientUnits="userSpaceOnUse">
-          <Stop stopColor={Theme.brandPrimary} />
-          <Stop offset={1} stopColor="#93C5FD" />
-        </LinearGradient>
-      </Defs>
       <Path
         d="M2 12C6 12 10 10 14 7C18 4 22 0 26 2C28 3 28 6 25 9C22 12 16 14 2 12Z"
-        fill="url(#splash_gradient)"
+        fill={Theme.brandPrimary}
         fillOpacity={0.6}
       />
     </Svg>

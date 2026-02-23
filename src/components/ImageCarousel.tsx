@@ -9,6 +9,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import {getImageUrl} from '../constants';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -47,7 +48,7 @@ export const ImageCarousel: React.FC<Props> = ({images}) => {
         {images.map((img, index) => (
           <Image
             key={index}
-            source={{uri: img}}
+            source={{uri: getImageUrl(img)}}
             style={styles.image}
             resizeMode="cover"
           />

@@ -8,6 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import type {HotelListItem as HotelListItemType} from '../types/hotel';
+import {getImageUrl} from '../constants';
 
 interface Props {
   item: HotelListItemType;
@@ -33,7 +34,7 @@ export const HotelListItem: React.FC<Props> = ({item, onPress, style}) => {
       {/* 左侧图片 */}
       <View style={styles.imageContainer}>
         <Image
-          source={{uri: item.images[0] || 'https://via.placeholder.com/100'}}
+          source={{uri: getImageUrl(item.images?.[0]) || 'https://via.placeholder.com/100'}}
           style={styles.image}
           resizeMode="cover"
         />

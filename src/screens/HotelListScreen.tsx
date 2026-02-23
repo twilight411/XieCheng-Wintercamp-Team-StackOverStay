@@ -8,6 +8,8 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -15,6 +17,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import { getHotelList } from '../services/hotel';
 import type {RootStackParamList} from '../navigation/types';
 import type {HotelListItem as HotelListItemType, ListParams} from '../types';
+import {useSearchStore} from '../stores/searchStore';
 import {HotelListItem} from '../components/HotelListItem';
 import {FilterBar} from '../components/FilterBar';
 import {CityPicker} from '../components/CityPicker';
@@ -33,13 +36,31 @@ function HotelListScreen(): React.JSX.Element {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<HotelListRouteProp>();
 
-  // 从参数获取初始值
-  const { city: initialCity, keyword, checkIn: initialCheckIn, checkOut: initialCheckOut } = route.params || {};
-  
-  // 状态管理
-  const [city, setCity] = React.useState(initialCity || '上海');
+  // 从参数或全局 store 获取初始值（与首页筛选条件同步）
+  const { city: paramCity, keyword: paramKeyword, checkIn: initialCheckIn, checkOut: initialCheckOut } = route.params || {};
+  const storeCity = useSearchStore(s => s.city);
+  const setStoreCity = useSearchStore(s => s.setCity);
+
+  const [city, setCityState] = React.useState(paramCity ?? storeCity ?? '上海');
+  const [keyword, setKeyword] = React.useState(paramKeyword ?? '');
   const [checkIn, setCheckIn] = React.useState(initialCheckIn || '2025-02-06');
   const [checkOut, setCheckOut] = React.useState(initialCheckOut || '2025-02-07');
+  const [keywordModalVisible, setKeywordModalVisible] = React.useState(false);
+  const [keywordInput, setKeywordInput] = React.useState('');
+
+  // 从首页/定位更新了城市时，列表页无 params 时同步展示
+  React.useEffect(() => {
+    if (paramCity == null) setCityState(storeCity);
+  }, [storeCity, paramCity]);
+  // 从首页带过来的 keyword 同步到列表页
+  React.useEffect(() => {
+    if (paramKeyword !== undefined) setKeyword(paramKeyword);
+  }, [paramKeyword]);
+
+  const setCity = (c: string) => {
+    setCityState(c);
+    setStoreCity(c);
+  };
   
   const [cityModalVisible, setCityModalVisible] = React.useState(false);
   const [dateModalVisible, setDateModalVisible] = React.useState(false);
@@ -81,20 +102,7 @@ function HotelListScreen(): React.JSX.Element {
   const applyLocalFilters = useCallback(
     (list: HotelListItemType[]): HotelListItemType[] => {
       let data = [...list];
-
-      if (keyword) {
-        const kwLower = keyword.toLowerCase();
-        data = data.filter(item => {
-          const nameLower = item.name.toLowerCase();
-          const nameEnLower = (item.nameEn || '').toLowerCase();
-          const addressStr = item.address || '';
-          return (
-            nameLower.includes(kwLower) ||
-            nameEnLower.includes(kwLower) ||
-            addressStr.includes(keyword)
-          );
-        });
-      }
+      // 关键词筛选已由后端完成，不再在前端对 keyword 做二次过滤
 
       if (filterPriceStar?.stars?.length) {
         const starNums = filterPriceStar.stars.map(Number);
@@ -157,7 +165,7 @@ function HotelListScreen(): React.JSX.Element {
 
       return data;
     },
-    [keyword, filterPriceStar, filterLocation, filterMore, filterSort],
+    [filterPriceStar, filterLocation, filterMore, filterSort],
   );
 
   // 构造请求参数
@@ -226,9 +234,17 @@ function HotelListScreen(): React.JSX.Element {
       const filtered = applyLocalFilters(result.list);
       setHotelList(filtered);
       setHasMore(result.total > filtered.length); 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch error:', error);
-      Alert.alert('加载失败', '请稍后重试');
+      const isNetworkError =
+        error?.message === 'Network Error' || error?.code === 'ERR_NETWORK';
+      Alert.alert(
+        '加载失败',
+        isNetworkError
+          ? '无法连接服务器（Network Error）。请确认：\n1. 后端已启动（如在后端目录执行 docker-compose up）\n2. 本机地址正确（模拟器用 10.0.2.2:端口，真机用电脑局域网 IP:端口）'
+          : '请检查网络或稍后重试。',
+        [{text: '知道了'}],
+      );
     } finally {
       setLoading(false);
     }
@@ -313,9 +329,12 @@ function HotelListScreen(): React.JSX.Element {
           <View style={styles.divider} />
           <TouchableOpacity
             style={styles.keywordSection}
-            activeOpacity={1}
-            onPress={() => Alert.alert('搜索关键字', '跳转搜索页')}>
-            <Text style={[styles.keywordText, !keyword && styles.placeholder]}>
+            activeOpacity={0.8}
+            onPress={() => {
+              setKeywordInput(keyword);
+              setKeywordModalVisible(true);
+            }}>
+            <Text style={[styles.keywordText, !keyword && styles.placeholder]} numberOfLines={1}>
               {keyword || '关键字/位置/品牌'}
             </Text>
           </TouchableOpacity>
@@ -437,6 +456,50 @@ function HotelListScreen(): React.JSX.Element {
         onClose={() => setDateModalVisible(false)}
         onSelect={handleDateSelect}
       />
+
+      {/* 关键词搜索弹层：输入后请求带 keyword，由后端筛选 */}
+      <Modal
+        visible={keywordModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setKeywordModalVisible(false)}>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.keywordModalBackdrop}
+          onPress={() => setKeywordModalVisible(false)}>
+          <View style={styles.keywordModalBox} onStartShouldSetResponder={() => true}>
+            <Text style={styles.keywordModalTitle}>关键字 / 位置 / 品牌</Text>
+            <TextInput
+              style={styles.keywordModalInput}
+              placeholder="如：经济型、汉庭、人民广场"
+              placeholderTextColor="#999"
+              value={keywordInput}
+              onChangeText={setKeywordInput}
+              autoFocus
+              returnKeyType="search"
+              onSubmitEditing={() => {
+                setKeyword(keywordInput.trim());
+                setKeywordModalVisible(false);
+              }}
+            />
+            <View style={styles.keywordModalButtons}>
+              <TouchableOpacity
+                style={[styles.keywordModalBtn, styles.keywordModalBtnCancel]}
+                onPress={() => setKeywordModalVisible(false)}>
+                <Text style={styles.keywordModalBtnCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.keywordModalBtn, styles.keywordModalBtnConfirm]}
+                onPress={() => {
+                  setKeyword(keywordInput.trim());
+                  setKeywordModalVisible(false);
+                }}>
+                <Text style={styles.keywordModalBtnConfirmText}>确定</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -532,6 +595,58 @@ const styles = StyleSheet.create({
   footerText: {
     color: '#999',
     fontSize: 12,
+  },
+  keywordModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  keywordModalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
+  keywordModalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  keywordModalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 16,
+  },
+  keywordModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  keywordModalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  keywordModalBtnCancel: {
+    backgroundColor: '#f0f0f0',
+  },
+  keywordModalBtnCancelText: {
+    fontSize: 15,
+    color: '#666',
+  },
+  keywordModalBtnConfirm: {
+    backgroundColor: '#0086F6',
+  },
+  keywordModalBtnConfirmText: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '600',
   },
 });
 
