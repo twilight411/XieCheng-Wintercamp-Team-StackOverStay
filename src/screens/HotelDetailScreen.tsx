@@ -92,6 +92,23 @@ function HotelDetailScreen(): React.JSX.Element {
       try {
         setLoading(true);
         const data = await getHotelDetail(hotelId);
+        // 预加载详情页相关图片：大图轮播 + 房型图片
+        if (Array.isArray(data.images)) {
+          data.images.forEach(img => {
+            const url = getImageUrl(img);
+            if (url) {
+              Image.prefetch(url);
+            }
+          });
+        }
+        if (Array.isArray(data.roomTypes)) {
+          data.roomTypes.forEach(room => {
+            const url = getImageUrl((room as any).image || data.images?.[0]);
+            if (url) {
+              Image.prefetch(url);
+            }
+          });
+        }
         setDetail(data);
       } catch (error) {
         console.error('Failed to fetch hotel detail:', error);

@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -27,6 +28,7 @@ import {FilterLocation} from '../components/filter/FilterLocation';
 import {FilterPriceStar} from '../components/filter/FilterPriceStar';
 import {FilterSort} from '../components/filter/FilterSort';
 import {FilterMore} from '../components/filter/FilterMore';
+import {getImageUrl} from '../constants';
 
 // 路由参数类型（HotelList 为 Stack 屏，由首页点击查询后跳转）
 type HotelListRouteProp = RouteProp<RootStackParamList, 'HotelList'>;
@@ -98,6 +100,16 @@ function HotelListScreen(): React.JSX.Element {
 
   const [loading, setLoading] = React.useState(false);
   const [hotelList, setHotelList] = React.useState<HotelListItemType[]>([]);
+
+  // 预加载列表首图，提升滚动体验
+  const prefetchHotelImages = React.useCallback((list: HotelListItemType[]) => {
+    list.forEach(item => {
+      const url = getImageUrl(item.images?.[0]);
+      if (url) {
+        Image.prefetch(url);
+      }
+    });
+  }, []);
 
   const applyLocalFilters = useCallback(
     (list: HotelListItemType[]): HotelListItemType[] => {
@@ -233,6 +245,7 @@ function HotelListScreen(): React.JSX.Element {
       const result = await getHotelList(params);
       const filtered = applyLocalFilters(result.list);
       setHotelList(filtered);
+      prefetchHotelImages(filtered);
       setHasMore(result.total > filtered.length); 
     } catch (error: any) {
       console.error('Fetch error:', error);
@@ -248,7 +261,7 @@ function HotelListScreen(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [buildParams, applyLocalFilters]);
+  }, [buildParams, applyLocalFilters, prefetchHotelImages]);
 
   // 加载更多
   const loadMoreData = useCallback(async () => {
@@ -264,7 +277,11 @@ function HotelListScreen(): React.JSX.Element {
     try {
       const result = await getHotelList(params);
       const filtered = applyLocalFilters(result.list);
-      setHotelList(prev => [...prev, ...filtered]);
+      setHotelList(prev => {
+        const merged = [...prev, ...filtered];
+        prefetchHotelImages(filtered);
+        return merged;
+      });
       setPage(nextPage);
       const currentCount = hotelList.length + filtered.length;
       setHasMore(result.total > currentCount);
@@ -273,7 +290,7 @@ function HotelListScreen(): React.JSX.Element {
     } finally {
       setLoadingMore(false);
     }
-  }, [loading, loadingMore, hasMore, page, buildParams, hotelList.length, applyLocalFilters]);
+  }, [loading, loadingMore, hasMore, page, buildParams, hotelList.length, applyLocalFilters, prefetchHotelImages]);
 
   // 监听筛选条件变化，自动触发刷新
   React.useEffect(() => {
@@ -380,9 +397,13 @@ function HotelListScreen(): React.JSX.Element {
         ListHeaderComponent={renderHeader}
         stickyHeaderIndices={[0]} // 让头部吸顶（需配合背景色）
         onEndReached={loadMoreData}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.4}
         ListFooterComponent={renderFooter}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyContainer}>

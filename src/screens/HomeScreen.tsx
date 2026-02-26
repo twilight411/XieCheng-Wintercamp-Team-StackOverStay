@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {CompositeNavigationProp} from '@react-navigation/native';
@@ -18,8 +19,8 @@ import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 
 import type {RootStackParamList} from '../navigation/types';
 import type {RootTabParamList} from '../navigation/types';
-import type {BannerItem} from '../types';
-import {getBanners} from '../services/hotel';
+import type {BannerItem, HotelListItem} from '../types';
+import {getBanners, getHotelList} from '../services/hotel';
 import {useSearchStore, type SearchState} from '../stores/searchStore';
 import {getCurrentCity} from '../services/geo';
 import DatePickerModal from '../components/DatePickerModal';
@@ -85,6 +86,11 @@ function HomeScreen(): React.JSX.Element {
   const [locating, setLocating] = useState(false);
   const [locationSuccessBanner, setLocationSuccessBanner] = useState<string | null>(null);
   const hasTriedLocation = React.useRef(false);
+  const suggestionDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [searchInput, setSearchInput] = useState(keyword ?? '');
+  const [suggestions, setSuggestions] = useState<HotelListItem[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -134,10 +140,71 @@ function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     setBannerLoading(true);
     getBanners()
-      .then(data => setBanners(data))
+      .then(data => {
+        setBanners(data);
+        // 预加载 Banner 图片，提升横滑体验
+        data.forEach(item => {
+          const url = getImageUrl(item.imageUrl) || BANNER_PLACEHOLDER;
+          if (url) {
+            Image.prefetch(url);
+          }
+        });
+      })
       .catch(() => {})
       .finally(() => setBannerLoading(false));
   }, []);
+
+  useEffect(
+    () => () => {
+      if (suggestionDebounceRef.current) {
+        clearTimeout(suggestionDebounceRef.current);
+      }
+    },
+    [],
+  );
+
+  const fetchSuggestions = (text: string) => {
+    const kw = text.trim();
+    if (!kw) {
+      setSuggestions([]);
+      return;
+    }
+    setSuggestLoading(true);
+    getHotelList({
+      city,
+      keyword: kw,
+      page: 1,
+      pageSize: 6,
+    })
+      .then(res => {
+        setSuggestions(res.list);
+      })
+      .catch(() => {
+        setSuggestions([]);
+      })
+      .finally(() => {
+        setSuggestLoading(false);
+      });
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchInput(text);
+    setKeyword(text);
+    if (suggestionDebounceRef.current) {
+      clearTimeout(suggestionDebounceRef.current);
+    }
+    suggestionDebounceRef.current = setTimeout(() => {
+      fetchSuggestions(text);
+    }, 300);
+  };
+
+  const handleSuggestionPress = (item: HotelListItem) => {
+    const name = item.name;
+    setSearchInput(name);
+    setKeyword(name);
+    setSuggestions([]);
+    goToList({keyword: name});
+  };
 
   const goToDetail = (hotelId: string) => {
     navigation.navigate('HotelDetail', {hotelId});
@@ -279,8 +346,8 @@ function HomeScreen(): React.JSX.Element {
                   style={styles.searchInput}
                   placeholder="位置/民宿名/编号"
                   placeholderTextColor={Theme.textMuted}
-                  value={keyword}
-                  onChangeText={setKeyword}
+                  value={searchInput}
+                  onChangeText={handleSearchChange}
                   returnKeyType="search"
                   onSubmitEditing={() => goToList()}
                 />
@@ -304,6 +371,44 @@ function HomeScreen(): React.JSX.Element {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {searchInput.trim().length > 0 && (
+              <View style={styles.suggestionPanel}>
+                {suggestLoading ? (
+                  <View style={styles.suggestionLoadingRow}>
+                    <ActivityIndicator size="small" color={Theme.brandPrimary} />
+                    <Text style={styles.suggestionLoadingText}>正在为你推荐酒店...</Text>
+                  </View>
+                ) : suggestions.length > 0 ? (
+                  suggestions.map(item => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.suggestionItem}
+                      activeOpacity={0.8}
+                      onPress={() => handleSuggestionPress(item)}>
+                      <View style={styles.suggestionIcon} />
+                      <View style={styles.suggestionTextWrap}>
+                        <Text style={styles.suggestionTitle} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {item.address ? (
+                          <Text style={styles.suggestionSubtitle} numberOfLines={1}>
+                            {item.address}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {typeof item.minPrice === 'number' ? (
+                        <Text style={styles.suggestionPrice}>¥{item.minPrice}起</Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.suggestionEmptyRow}>
+                    <Text style={styles.suggestionEmptyText}>未找到相关酒店，试试其他关键词</Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* 入住 / 离店 */}
             <TouchableOpacity
@@ -587,6 +692,68 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 12,
     color: Theme.textSecondary,
+  },
+  suggestionPanel: {
+    marginTop: 8,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
+  },
+  suggestionLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  suggestionLoadingText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: Theme.textMuted,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  suggestionIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: '#EDF4FF',
+    marginRight: 10,
+  },
+  suggestionTextWrap: {
+    flex: 1,
+  },
+  suggestionTitle: {
+    fontSize: 14,
+    color: Theme.textPrimary,
+    fontWeight: '500',
+  },
+  suggestionSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: Theme.textMuted,
+  },
+  suggestionPrice: {
+    marginLeft: 8,
+    fontSize: 13,
+    color: Theme.brandPrimary,
+    fontWeight: '600',
+  },
+  suggestionEmptyRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  suggestionEmptyText: {
+    fontSize: 12,
+    color: Theme.textMuted,
   },
   queryButton: {
     width: '100%',

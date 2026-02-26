@@ -18,6 +18,7 @@ function Tabs(): React.JSX.Element {
     <Tab.Navigator
       screenOptions={({route}) => ({
         headerShown: false,
+        lazy: true,
         tabBarIcon: ({focused, color, size}) => {
           const weight = focused ? 'fill' : 'regular';
           return route.name === 'Home' ? (

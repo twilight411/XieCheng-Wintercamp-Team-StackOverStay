@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ViewStyle,
+  ScrollView,
 } from 'react-native';
 import type {HotelListItem as HotelListItemType} from '../types/hotel';
 import {getImageUrl} from '../constants';
@@ -62,12 +63,19 @@ export const HotelListItem: React.FC<Props> = ({item, onPress, style}) => {
         </Text>
 
         <View style={styles.bottomRow}>
-          <View style={styles.tagsRow}>
-            {/* 静态标签占位 */}
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>不可取消</Text>
-            </View>
-          </View>
+          <ScrollView
+            style={styles.tagsScroll}
+            contentContainerStyle={styles.tagsRow}
+            horizontal
+            showsHorizontalScrollIndicator={false}>
+            {Array.isArray(item.facilities) && item.facilities.length > 0
+              ? item.facilities.map((fac, index) => (
+                  <View key={`${fac}-${index}`} style={styles.tag}>
+                    <Text style={styles.tagText} numberOfLines={1}>{fac}</Text>
+                  </View>
+                ))
+              : null}
+          </ScrollView>
 
           <View style={styles.priceContainer}>
             <Text style={styles.currency}>¥</Text>
@@ -137,9 +145,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
+  tagsScroll: {
+    flex: 1,
+    maxWidth: '65%',
+  },
   tagsRow: {
     flexDirection: 'row',
     gap: 4,
+    paddingRight: 8,
   },
   tag: {
     paddingHorizontal: 4,
